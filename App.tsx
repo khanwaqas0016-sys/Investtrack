@@ -4,7 +4,6 @@ import Dashboard from './components/Dashboard';
 import InvestmentList from './components/InvestmentList';
 import CustomerList from './components/CustomerList';
 import TransactionHistory from './components/TransactionHistory';
-import AIInsights from './components/AIInsights';
 import Settings from './components/Settings';
 import AppLock from './components/AppLock';
 import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from './types';
@@ -187,8 +186,6 @@ const App: React.FC = () => {
         />;
       case 'history':
         return <TransactionHistory data={data} onDeletePayment={handleDeletePayment} />;
-      case 'ai-insights':
-        return <AIInsights data={data} />;
       case 'settings':
         return <Settings 
             data={data} 

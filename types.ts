@@ -50,14 +50,14 @@ export interface AppState {
   backup: BackupSettings;
 }
 
-export type View = 'dashboard' | 'investments' | 'customers' | 'history' | 'ai-insights' | 'settings';
-
 export interface AIAnalysisResult {
   summary: string;
   riskAssessment: string;
   opportunities: string;
   timestamp: number;
 }
+
+export type View = 'dashboard' | 'investments' | 'customers' | 'history' | 'settings';
 
 declare global {
   interface Window {

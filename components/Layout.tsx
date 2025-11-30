@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, PieChart, History, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, Users, PieChart, History, Settings as SettingsIcon } from 'lucide-react';
 import { View } from '../types';
 
 interface LayoutProps {
@@ -15,7 +15,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, children }) 
     { id: 'investments', label: 'Invest', icon: <PieChart size={22} strokeWidth={2} /> },
     { id: 'customers', label: 'People', icon: <Users size={22} strokeWidth={2} /> },
     { id: 'history', label: 'History', icon: <History size={22} strokeWidth={2} /> },
-    { id: 'ai-insights', label: 'Advisor', icon: <Sparkles size={22} strokeWidth={2} /> },
   ];
 
   return (
