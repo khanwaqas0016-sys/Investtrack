@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InvestTrack Pro</title>
+    <!-- Tailwind via CDN for simplicity in this specific setup, though npm install is also an option -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8fafc;
+      }
+      /* Custom Scrollbar for cleaner UI */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+
+      /* Animation Classes */
+      .fly-dollar {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px; /* Adjusted size for text */
+        font-weight: 800; /* Bold for currency symbol */
+        color: #1e293b; /* Dark slate text */
+        opacity: 0;
+        z-index: 9999;
+        padding: 5px 15px; 
+        border-radius: 50px;
+        animation-duration: 1.2s;
+        animation-timing-function: ease-out;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      /* Give Money → fly upward */
+      .fly-up {
+        bottom: 10%; /* Start slightly visible */
+        background: rgba(239, 68, 68, 0.25); /* light red */
+        animation-name: flyUp;
+      }
+
+      @keyframes flyUp {
+        0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(0.5); }
+        10% { opacity: 1; transform: translateX(-50%) translateY(-20px) scale(1); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-400px) scale(1); }
+      }
+
+      /* Take Money → fly downward */
+      .fly-down {
+        top: 10%; /* Start slightly visible */
+        background: rgba(16, 185, 129, 0.25); /* light green */
+        animation-name: flyDown;
+      }
+
+      @keyframes flyDown {
+        0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(0.5); }
+        10% { opacity: 1; transform: translateX(-50%) translateY(20px) scale(1); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(400px) scale(1); }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Global Animation Helper
+      window.showDollarAnimation = function(type) {
+        const count = 10; // Generate 10 items for a shower effect
+        
+        for (let i = 0; i < count; i++) {
+          const div = document.createElement("div");
+          div.classList.add("fly-dollar");
+
+          if (type === "give") {
+            div.classList.add("fly-up");
+          } else {
+            div.classList.add("fly-down");
+          }
+
+          div.textContent = "Rs"; // Changed from emoji to Rs
+          
+          // Randomize Position (spread widely across the center)
+          const randomLeft = 30 + Math.random() * 40; // 30% to 70% of screen width
+          div.style.left = randomLeft + "%";
+          
+          // Randomize Size
+          const randomSize = 20 + Math.random() * 20; // 20px to 40px
+          div.style.fontSize = randomSize + "px";
+
+          // Randomize Delay for burst effect
+          const randomDelay = Math.random() * 0.5; // 0 to 0.5s delay
+          div.style.animationDelay = randomDelay + "s";
+          
+          // Randomize Duration
+          const randomDuration = 1 + Math.random() * 0.8; // 1s to 1.8s duration
+          div.style.animationDuration = randomDuration + "s";
+
+          document.body.appendChild(div);
+
+          // Cleanup
+          setTimeout(() => div.remove(), (randomDuration + randomDelay) * 1000 + 100); 
+        }
+      };
+    </script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

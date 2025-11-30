@@ -1,0 +1,7 @@
+{
+  "name": "InvestTrack Pro",
+  "description": "A comprehensive mobile-first application to track investments, manage customers, monitor payments, and calculate profits with AI-powered insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
