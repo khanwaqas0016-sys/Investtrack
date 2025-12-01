@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { AppState, AIAnalysisResult } from '../types';
 
 const getClient = () => {
@@ -6,11 +6,11 @@ const getClient = () => {
   if (!apiKey) {
     throw new Error("API Key not found");
   }
-  return new GoogleGenerativeAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
-  const genAI = getClient();
+  const ai = getClient();
   
   // Prepare a summary of the data to avoid token limits if data is huge
   // Filter out 'lend' type from collected amounts as those are money OUT
@@ -40,26 +40,23 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
   `;
 
   try {
-    // Use the standard model supported by the SDK
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json"
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json'
       }
     });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
+    const text = response.text;
     if (!text) throw new Error("No response from AI");
 
-    const resultJson = JSON.parse(text);
+    const result = JSON.parse(text);
     
     return {
-      summary: resultJson.summary || "Unable to generate summary.",
-      riskAssessment: Array.isArray(resultJson.riskAssessment) ? resultJson.riskAssessment.join('. ') : (resultJson.riskAssessment || "No risks identified."),
-      opportunities: Array.isArray(resultJson.opportunities) ? resultJson.opportunities.join('. ') : (resultJson.opportunities || "No specific opportunities found."),
+      summary: result.summary || "Unable to generate summary.",
+      riskAssessment: Array.isArray(result.riskAssessment) ? result.riskAssessment.join('. ') : (result.riskAssessment || "No risks identified."),
+      opportunities: Array.isArray(result.opportunities) ? result.opportunities.join('. ') : (result.opportunities || "No specific opportunities found."),
       timestamp: Date.now()
     };
 
