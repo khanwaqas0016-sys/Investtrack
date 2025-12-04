@@ -304,8 +304,12 @@ const CustomerList: React.FC<CustomerListProps> = ({
       .filter(p => investmentIds.includes(p.investmentId) && p.type !== 'lend')
       .reduce((sum, p) => sum + p.amount, 0);
       
+    // FIXED: Calculate total expected return considering manual override
     const totalExpectedReturn = customerInvestments.reduce((sum, i) => {
-        return sum + (i.amountInvested * (1 + i.expectedReturnRate / 100));
+        const expected = i.manualReturnAmount
+          ? i.manualReturnAmount
+          : i.amountInvested * (1 + i.expectedReturnRate / 100);
+        return sum + expected;
     }, 0);
     
     const balanceDue = totalExpectedReturn - totalRepaid;
@@ -379,7 +383,11 @@ const CustomerList: React.FC<CustomerListProps> = ({
                         customerInvestments.map(inv => {
                             const payments = data.payments.filter(p => p.investmentId === inv.id).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                             const invRepaid = payments.filter(p => p.type !== 'lend').reduce((sum, p) => sum + p.amount, 0);
-                            const invExpected = inv.amountInvested * (1 + inv.expectedReturnRate/100);
+                            
+                            // FIXED: Use manual return amount if present
+                            const invExpected = inv.manualReturnAmount
+                              ? inv.manualReturnAmount
+                              : inv.amountInvested * (1 + inv.expectedReturnRate/100);
                             
                             return (
                                 <div key={inv.id} className="break-inside-avoid">

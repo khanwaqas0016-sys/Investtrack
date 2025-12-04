@@ -6,23 +6,17 @@ import CustomerList from './components/CustomerList';
 import TransactionHistory from './components/TransactionHistory';
 import Settings from './components/Settings';
 import AppLock from './components/AppLock';
+import Login from './components/Login';
 import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from './types';
+import { auth } from './firebaseConfig';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { saveAppData, loadAppData } from './services/storageService';
 
-// Mock Initial Data
+// Default / Empty State
 const INITIAL_DATA: AppState = {
-  customers: [
-    { id: '1', name: 'Alice Johnson', email: 'alice@example.com', phone: '555-0101', joinedDate: '2023-01-15' },
-    { id: '2', name: 'Bob Smith', email: 'bob@example.com', phone: '555-0102', joinedDate: '2023-03-22' },
-  ],
-  investments: [
-    { id: '101', customerId: '1', title: 'Downtown Apt 402', amountInvested: 150000, expectedReturnRate: 12, startDate: '2023-02-01', endDate: '2024-02-01', status: 'active' },
-    { id: '102', customerId: '2', title: 'Tech Start Seed Fund', amountInvested: 50000, expectedReturnRate: 25, startDate: '2023-06-15', endDate: '2025-06-15', status: 'active' },
-  ],
-  payments: [
-    { id: 'p1', investmentId: '101', amount: 15000, date: '2023-03-01', type: 'downpayment' },
-    { id: 'p2', investmentId: '101', amount: 5000, date: '2023-04-01', type: 'installment' },
-    { id: 'p3', investmentId: '102', amount: 50000, date: '2023-06-15', type: 'downpayment' },
-  ],
+  customers: [],
+  investments: [],
+  payments: [],
   security: {
     enabled: false,
     pin: '',
@@ -30,54 +24,78 @@ const INITIAL_DATA: AppState = {
     autoLockMinutes: 0
   },
   backup: {
-    enabled: false,
+    enabled: true,
     frequency: 'weekly',
     lastBackupDate: null
   }
 };
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [data, setData] = useState<AppState>(() => {
-    const saved = localStorage.getItem('investTrackData');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Ensure new fields exist if loading old data
-      return {
-        ...INITIAL_DATA,
-        ...parsed,
-        security: parsed.security || INITIAL_DATA.security,
-        backup: parsed.backup || INITIAL_DATA.backup
-      };
-    }
-    return INITIAL_DATA;
-  });
+  
+  // App Data State
+  const [data, setData] = useState<AppState>(INITIAL_DATA);
 
   const [isLocked, setIsLocked] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
-  // Check initial lock state
+  // Firebase Auth Listener & Data Loading (Offline First logic)
   useEffect(() => {
-    if (data.security.enabled) {
-      setIsLocked(true);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsAuthenticated(!!user);
+      
+      if (user) {
+        // User is logged in (could be offline if session is cached)
+        // Load THEIR specific data from localStorage
+        const localData = loadAppData(user.uid);
+        if (localData) {
+          setData(localData);
+        } else {
+          // New user on this device? Start with empty/default data
+          // We intentionally do not use the global 'investTrackData' fallback to ensure data separation
+          setData(INITIAL_DATA);
+        }
+      } else {
+        // User is logged out. 
+        // Reset state to empty to prevent data leakage between users on shared device
+        setData(INITIAL_DATA);
+      }
+      
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Persist Data
+  // Check initial lock state
   useEffect(() => {
-    localStorage.setItem('investTrackData', JSON.stringify(data));
-  }, [data]);
+    if (isAuthenticated && data.security.enabled) {
+      setIsLocked(true);
+    }
+  }, [isAuthenticated, data.security.enabled]);
+
+  // Persist Data to LocalStorage whenever it changes
+  // This is the CORE of the offline functionality.
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      saveAppData(currentUser.uid, data);
+    }
+  }, [data, isAuthenticated, currentUser]);
 
   // Auto-lock Logic
   const checkForInactivity = useCallback(() => {
-    if (data.security.enabled && data.security.autoLockMinutes > 0 && !isLocked) {
+    if (isAuthenticated && data.security.enabled && data.security.autoLockMinutes > 0 && !isLocked) {
       const now = Date.now();
       const idleTime = (now - lastActivity) / 1000 / 60; // in minutes
       if (idleTime >= data.security.autoLockMinutes) {
         setIsLocked(true);
       }
     }
-  }, [lastActivity, isLocked, data.security]);
+  }, [isAuthenticated, lastActivity, isLocked, data.security]);
 
   useEffect(() => {
     const interval = setInterval(checkForInactivity, 5000); // Check every 5s
@@ -163,6 +181,19 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      // Data is cleared from state by the auth listener above
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    // handled by auth listener
+  };
+
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
@@ -191,11 +222,27 @@ const App: React.FC = () => {
             data={data} 
             onUpdateSecurity={(sec) => updateData({ security: sec })}
             onUpdateBackup={(back) => updateData({ backup: back })}
+            onSignOut={handleSignOut}
         />;
       default:
         return <Dashboard data={data} />;
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-indigo-600 font-bold">Loading InvestTrack...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <>

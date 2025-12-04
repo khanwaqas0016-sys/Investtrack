@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { AppState, SecuritySettings, BackupSettings } from '../types';
-import { Lock, Shield, Smartphone, Clock, Cloud, Download, History, ChevronRight, ToggleLeft, ToggleRight, CheckCircle, Save, Database, RefreshCw } from 'lucide-react';
+import { Lock, Shield, Smartphone, Clock, Cloud, Download, History, ChevronRight, ToggleLeft, ToggleRight, CheckCircle, Save, Database, RefreshCw, Mail, Phone, User, Upload, LogOut } from 'lucide-react';
 import AppLock from './AppLock';
 
 interface SettingsProps {
   data: AppState;
   onUpdateSecurity: (settings: SecuritySettings) => void;
   onUpdateBackup: (settings: BackupSettings) => void;
+  onSignOut: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBackup }) => {
+const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBackup, onSignOut }) => {
   const [showPinSetup, setShowPinSetup] = useState(false);
+  const [importStatus, setImportStatus] = useState<string>('');
 
   // Security Handlers
   const toggleAppLock = () => {
@@ -33,8 +35,8 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
   };
 
   // Backup Handlers
-  const handleBackupNow = () => {
-    // Simulate backup creation
+  const handleExportBackup = () => {
+    // Export Local Storage data
     const backupData = JSON.stringify(data, null, 2);
     const blob = new Blob([backupData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -53,19 +55,134 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
     });
   };
 
-  const toggleBackup = () => {
-    onUpdateBackup({
-      ...data.backup,
-      enabled: !data.backup.enabled
-    });
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const json = event.target?.result as string;
+          const parsedData = JSON.parse(json);
+          
+          // Basic validation to check if it has the right shape
+          if (parsedData.customers && parsedData.investments) {
+            localStorage.setItem('investTrackData', JSON.stringify(parsedData));
+            setImportStatus('Backup restored successfully! Reloading...');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } else {
+            setImportStatus('Error: Invalid backup file format.');
+          }
+        } catch (err) {
+          setImportStatus('Error: Could not parse file.');
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      <div>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Settings</h2>
-        <p className="text-slate-500 font-medium text-sm">Security & Data Management</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Settings</h2>
+          <p className="text-slate-500 font-medium text-sm">Security, Data & Support</p>
+        </div>
+        <button 
+          onClick={onSignOut}
+          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-colors"
+        >
+          <LogOut size={16} className="mr-2" />
+          Sign Out
+        </button>
       </div>
+
+      {/* Support Section */}
+      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-blue-50 p-2.5 rounded-xl">
+             <User className="text-blue-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Contact Support</h3>
+            <p className="text-xs text-slate-500">Developer Information</p>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700">
+              <User size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-bold uppercase">Developed By</p>
+              <p className="font-bold text-slate-800">Waqas Ahmad</p>
+            </div>
+          </div>
+          
+          <a href="mailto:khanwaqas0016@gmail.com" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-indigo-600">
+              <Mail size={20} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs text-slate-400 font-bold uppercase">Email</p>
+              <p className="font-bold text-slate-800 truncate">khanwaqas0016@gmail.com</p>
+            </div>
+          </a>
+
+          <a href="tel:+971582685224" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-green-600">
+              <Phone size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-bold uppercase">Mobile / WhatsApp</p>
+              <p className="font-bold text-slate-800">+971 58 268 5224</p>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      {/* Backup Section */}
+      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-emerald-50 p-2.5 rounded-xl">
+             <Database className="text-emerald-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Backup & Restore</h3>
+            <p className="text-xs text-slate-500">Manage your data locally</p>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+             <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 text-xs text-slate-500">
+                <CheckCircle size={14} className="text-emerald-500"/>
+                Last Export: <span className="font-mono text-slate-700 font-bold">{data.backup.lastBackupDate ? new Date(data.backup.lastBackupDate).toLocaleString() : 'Never'}</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                    onClick={handleExportBackup}
+                    className="py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-slate-200 hover:bg-slate-800 transition-transform active:scale-[0.98]"
+                >
+                    <Download size={20} />
+                    Export JSON
+                </button>
+                
+                <label className="py-4 bg-white border-2 border-dashed border-slate-200 text-slate-600 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <Upload size={20} />
+                    Import JSON
+                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                </label>
+            </div>
+            
+            {importStatus && (
+               <p className={`text-center text-sm font-medium ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
+                 {importStatus}
+               </p>
+            )}
+        </div>
+      </section>
 
       {/* App Lock Section */}
       <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -155,73 +272,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                      </button>
                 </div>
             )}
-        </div>
-      </section>
-
-      {/* Backup Section */}
-      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="bg-emerald-50 p-2.5 rounded-xl">
-             <Database className="text-emerald-600" size={24} />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Backup & Restore</h3>
-            <p className="text-xs text-slate-500">Manage your data</p>
-          </div>
-        </div>
-
-        <div className="p-2">
-             <div className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors">
-                <div className="flex items-center gap-3">
-                    <Cloud size={20} className="text-slate-400" />
-                    <div>
-                        <span className="font-medium text-slate-700 block">Auto Backup</span>
-                        <span className="text-xs text-slate-400">Save data locally</span>
-                    </div>
-                </div>
-                <button onClick={toggleBackup} className="text-emerald-500 transition-transform active:scale-95">
-                    {data.backup.enabled 
-                        ? <ToggleRight size={48} strokeWidth={1.5} className="fill-emerald-50" /> 
-                        : <ToggleLeft size={48} strokeWidth={1.5} className="text-slate-300" />
-                    }
-                </button>
-            </div>
-
-            {data.backup.enabled && (
-                <div className="mt-2 pl-4 pr-2 space-y-1 animate-fade-in">
-                     {/* Frequency */}
-                     <div className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50">
-                        <div className="flex items-center gap-3">
-                            <History size={20} className="text-slate-400" />
-                            <span className="font-medium text-slate-700">Frequency</span>
-                        </div>
-                        <select 
-                            value={data.backup.frequency}
-                            onChange={(e) => onUpdateBackup({...data.backup, frequency: e.target.value as any})}
-                            className="bg-slate-100 text-slate-700 text-sm font-semibold py-2 pl-3 pr-8 rounded-xl outline-none border-r-8 border-transparent capitalize"
-                        >
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
-                    </div>
-
-                    <div className="p-4 flex items-center gap-3 text-xs text-slate-500">
-                        <CheckCircle size={14} className="text-emerald-500"/>
-                        Last Backup: <span className="font-mono text-slate-700 font-bold">{data.backup.lastBackupDate ? new Date(data.backup.lastBackupDate).toLocaleString() : 'Never'}</span>
-                    </div>
-                </div>
-            )}
-
-            <div className="p-4">
-                <button 
-                    onClick={handleBackupNow}
-                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-slate-200 hover:bg-slate-800 transition-transform active:scale-[0.98]"
-                >
-                    <Download size={20} />
-                    Backup Now (JSON)
-                </button>
-            </div>
         </div>
       </section>
 

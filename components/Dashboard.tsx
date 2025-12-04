@@ -45,8 +45,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     
   const currentNetPosition = totalCollected - totalInvested;
   
+  // FIXED: Calculation now respects manualReturnAmount if present
   const totalExpectedReturn = data.investments.reduce((sum, i) => {
-    return sum + (i.amountInvested * (1 + i.expectedReturnRate / 100));
+    const expected = i.manualReturnAmount
+      ? i.manualReturnAmount
+      : i.amountInvested * (1 + i.expectedReturnRate / 100);
+    return sum + expected;
   }, 0);
 
   const totalProjectedProfit = totalExpectedReturn - totalInvested;

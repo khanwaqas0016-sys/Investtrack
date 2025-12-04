@@ -47,8 +47,17 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
       .filter(p => p.investmentId === invId && p.type !== 'lend')
       .reduce((sum, p) => sum + p.amount, 0);
       
-    const expectedTotal = total * (1 + (data.investments.find(i => i.id === invId)?.expectedReturnRate || 0)/100);
-    return { paid, percentage: expectedTotal > 0 ? Math.min((paid / expectedTotal) * 100, 100) : 0 };
+    const inv = data.investments.find(i => i.id === invId);
+    
+    // Manual Return Logic: Use manual amount if present, otherwise calculate
+    let expectedTotal = 0;
+    if (inv?.manualReturnAmount) {
+      expectedTotal = inv.manualReturnAmount;
+    } else {
+      expectedTotal = total * (1 + (inv?.expectedReturnRate || 0)/100);
+    }
+    
+    return { paid, percentage: expectedTotal > 0 ? Math.min((paid / expectedTotal) * 100, 100) : 0, expectedTotal };
   };
 
   const handleSaveInvestment = (e: React.FormEvent) => {
@@ -60,6 +69,7 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
         customerId: invForm.customerId,
         amountInvested: Number(invForm.amountInvested),
         expectedReturnRate: Number(invForm.expectedReturnRate || 0),
+        manualReturnAmount: invForm.manualReturnAmount ? Number(invForm.manualReturnAmount) : undefined,
         startDate: invForm.startDate || new Date().toISOString(),
         endDate: invForm.endDate || new Date().toISOString(),
         status: (invForm.status || 'active') as 'active' | 'completed' | 'cancelled',
@@ -221,15 +231,28 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
                 />
               </div>
                <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-2">Rate (%)</label>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">Auto Rate (%)</label>
                 <input 
-                  required type="number"
+                  type="number"
                   className="w-full p-4 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
                   value={invForm.expectedReturnRate || ''}
                   onChange={e => setInvForm({...invForm, expectedReturnRate: parseFloat(e.target.value)})}
                 />
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-indigo-600 mb-2">Manual Return Amount (Optional)</label>
+              <input 
+                type="number"
+                placeholder="Override percentage with fixed amount"
+                className="w-full p-4 border border-indigo-100 rounded-xl bg-indigo-50/30 focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
+                value={invForm.manualReturnAmount || ''}
+                onChange={e => setInvForm({...invForm, manualReturnAmount: parseFloat(e.target.value)})}
+              />
+              <p className="text-xs text-slate-400 mt-1">If set, this specific amount will be used as the expected return instead of the percentage.</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
                <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-2">Start Date</label>
@@ -359,7 +382,6 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
       );
     }
 
-    // RENDER: Add Funds Form (Give Money)
     if (viewState === 'add_funds' && selectedInvestment) {
       return (
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 animate-fade-in">
@@ -393,16 +415,168 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
       );
     }
 
+    // RENDER: Investment Details
+    if (viewState === 'details' && selectedInvestment) {
+      const customer = data.customers.find(c => c.id === selectedInvestment.customerId);
+      const relatedPayments = data.payments.filter(p => p.investmentId === selectedInvestment.id);
+      
+      const totalPaid = relatedPayments
+        .filter(p => p.type !== 'lend')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      // Manual Return Override Logic
+      let expectedReturn = 0;
+      if (selectedInvestment.manualReturnAmount) {
+        expectedReturn = selectedInvestment.manualReturnAmount;
+      } else {
+        expectedReturn = selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
+      }
+      
+      const balance = expectedReturn - totalPaid;
+
+      return (
+        <div className="space-y-6 animate-fade-in relative pb-8">
+          <div className="flex justify-between items-center px-1">
+             <button onClick={() => setViewState('list')} className="text-sm text-indigo-600 font-bold flex items-center hover:underline"><ArrowLeftCircle size={18} className="mr-1.5"/> Back to List</button>
+             <button 
+               onClick={() => setViewState('report')} 
+               className="text-sm bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-full flex items-center hover:bg-slate-50 shadow-sm transition-all"
+             >
+               <FileText size={16} className="mr-2 text-indigo-500"/> Report
+             </button>
+          </div>
+          
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-6">
+              <div className="z-10">
+                <div className="flex items-center space-x-3">
+                  <h2 className="text-2xl font-extrabold text-slate-900">{selectedInvestment.title}</h2>
+                  <div className="flex space-x-1">
+                    <button onClick={startEditInvestment} className="text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 p-2 rounded-full transition-colors"><Pencil size={16} /></button>
+                    <button onClick={() => startDeleteInvestment(selectedInvestment.id)} className="text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 p-2 rounded-full transition-colors"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+                <p className="text-slate-500 font-medium mt-1">{customer?.name}</p>
+              </div>
+              <span className={`px-4 py-1.5 text-xs font-bold rounded-full z-10 uppercase tracking-wide ${selectedInvestment.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                {selectedInvestment.status}
+              </span>
+              
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full opacity-50 z-0 pointer-events-none"></div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
+              <div className="bg-slate-50 p-5 rounded-2xl">
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Given</p>
+                <p className="text-xl font-bold text-slate-800">Rs {selectedInvestment.amountInvested.toLocaleString()}</p>
+              </div>
+              <div className="bg-indigo-50 p-5 rounded-2xl relative overflow-hidden">
+                <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider mb-1">
+                  Expected Return {selectedInvestment.manualReturnAmount && <span className="text-[10px] ml-1 bg-indigo-200 text-indigo-800 px-1 rounded">MANUAL</span>}
+                </p>
+                <p className="text-xl font-bold text-indigo-700">Rs {expectedReturn.toLocaleString()}</p>
+              </div>
+              <div className="bg-emerald-50 p-5 rounded-2xl">
+                <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">Received</p>
+                <p className="text-xl font-bold text-emerald-700">Rs {totalPaid.toLocaleString()}</p>
+              </div>
+               <div className="bg-amber-50 p-5 rounded-2xl">
+                <p className="text-xs text-amber-600 font-bold uppercase tracking-wider mb-1">Remaining</p>
+                <p className="text-xl font-bold text-amber-700">Rs {Math.max(0, balance).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {selectedInvestment.notes && (
+              <div className="bg-slate-50 p-5 rounded-2xl mb-6 relative z-10 border border-slate-100">
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Notes</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedInvestment.notes}</p>
+              </div>
+            )}
+
+            {/* Buttons for Actions */}
+            <div className="flex space-x-4 relative z-10">
+               <button 
+                onClick={() => setViewState('add_funds')}
+                className="flex-1 py-4 bg-orange-50 text-orange-700 rounded-2xl font-bold hover:bg-orange-100 transition-colors flex items-center justify-center group"
+              >
+                <div className="bg-orange-200 p-1.5 rounded-full mr-2 group-hover:bg-orange-300 transition-colors">
+                    <ArrowRightCircle size={18} className="text-orange-700" />
+                </div>
+                Give Money
+              </button>
+              <button 
+                onClick={() => setViewState('add_pay')}
+                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-colors flex items-center justify-center group"
+              >
+                <div className="bg-emerald-500/50 p-1.5 rounded-full mr-2 group-hover:bg-emerald-500 transition-colors">
+                    <ArrowLeftCircle size={18} className="text-white" />
+                </div>
+                Take Money
+              </button>
+            </div>
+          </div>
+
+          <h3 className="font-bold text-slate-800 text-lg px-2">Transaction Log</h3>
+          <div className="space-y-3">
+            {relatedPayments.length === 0 ? <p className="text-slate-400 text-sm px-2 italic">No transactions recorded.</p> : null}
+            {[...relatedPayments].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => {
+               const isMoneyOut = p.type === 'lend';
+               return (
+                <div key={p.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex items-center justify-between group hover:scale-[1.01] transition-transform shadow-sm">
+                  <div className="flex items-center space-x-4">
+                    <div className={`p-3 rounded-full ${isMoneyOut ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {isMoneyOut ? <TrendingUp size={20} className="rotate-45" /> : <CheckCircle size={20} />}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                         <p className={`font-bold text-sm ${isMoneyOut ? 'text-orange-700' : 'text-slate-800'}`}>
+                          {isMoneyOut ? 'Money Given' : 'Payment Received'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">{new Date(p.date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className={`font-extrabold ${isMoneyOut ? 'text-orange-600' : 'text-emerald-600'}`}>
+                        {isMoneyOut ? '-' : '+'}Rs {p.amount.toLocaleString()}
+                      </p>
+                      {p.receiptImage && (
+                         <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-wide cursor-pointer hover:underline">View Receipt</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col space-y-1 ml-2 pl-3 border-l border-slate-100">
+                       <button onClick={() => startEditPayment(p)} className="text-slate-300 hover:text-indigo-500 transition-colors"><Pencil size={16} /></button>
+                       <button 
+                        onClick={(e) => { e.stopPropagation(); setPaymentToDelete(p.id); }} 
+                        className="text-slate-300 hover:text-red-500 transition-colors"
+                       >
+                        <Trash2 size={16} />
+                       </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    
     // RENDER: Report View
     if (viewState === 'report' && selectedInvestment) {
-      const customer = data.customers.find(c => c.id === selectedInvestment.customerId);
       const relatedPayments = data.payments.filter(p => p.investmentId === selectedInvestment.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       const totalPaid = relatedPayments
         .filter(p => p.type !== 'lend')
         .reduce((sum, p) => sum + p.amount, 0);
 
-      const expectedReturn = selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
+      let expectedReturn = 0;
+      if (selectedInvestment.manualReturnAmount) {
+        expectedReturn = selectedInvestment.manualReturnAmount;
+      } else {
+        expectedReturn = selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
+      }
       const remaining = expectedReturn - totalPaid;
 
       return (
@@ -502,214 +676,82 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
       );
     }
 
-    // RENDER: Investment Details
-    if (viewState === 'details' && selectedInvestment) {
-      const customer = data.customers.find(c => c.id === selectedInvestment.customerId);
-      const relatedPayments = data.payments.filter(p => p.investmentId === selectedInvestment.id);
-      
-      const totalPaid = relatedPayments
-        .filter(p => p.type !== 'lend')
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      const expectedReturn = selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
-      const balance = expectedReturn - totalPaid;
-
+    // RENDER: List View
+    if (viewState === 'list') {
       return (
-        <div className="space-y-6 animate-fade-in relative pb-8">
-          <div className="flex justify-between items-center px-1">
-             <button onClick={() => setViewState('list')} className="text-sm text-indigo-600 font-bold flex items-center hover:underline"><ArrowLeftCircle size={18} className="mr-1.5"/> Back to List</button>
-             <button 
-               onClick={() => setViewState('report')} 
-               className="text-sm bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-full flex items-center hover:bg-slate-50 shadow-sm transition-all"
-             >
-               <FileText size={16} className="mr-2 text-indigo-500"/> Report
-             </button>
-          </div>
-          
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-6">
-              <div className="z-10">
-                <div className="flex items-center space-x-3">
-                  <h2 className="text-2xl font-extrabold text-slate-900">{selectedInvestment.title}</h2>
-                  <div className="flex space-x-1">
-                    <button onClick={startEditInvestment} className="text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 p-2 rounded-full transition-colors"><Pencil size={16} /></button>
-                    <button onClick={() => startDeleteInvestment(selectedInvestment.id)} className="text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 p-2 rounded-full transition-colors"><Trash2 size={16} /></button>
-                  </div>
-                </div>
-                <p className="text-slate-500 font-medium mt-1">{customer?.name}</p>
-              </div>
-              <span className={`px-4 py-1.5 text-xs font-bold rounded-full z-10 uppercase tracking-wide ${selectedInvestment.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                {selectedInvestment.status}
-              </span>
-              
-              {/* Decorative background blob */}
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full opacity-50 z-0 pointer-events-none"></div>
+        <div className="space-y-6 animate-fade-in relative pb-10">
+          <div className="flex justify-between items-end px-2">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Accounts</h2>
+              <p className="text-slate-500 font-medium text-sm">Manage your portfolio</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
-              <div className="bg-slate-50 p-5 rounded-2xl">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Given</p>
-                <p className="text-xl font-bold text-slate-800">Rs {selectedInvestment.amountInvested.toLocaleString()}</p>
-              </div>
-              <div className="bg-indigo-50 p-5 rounded-2xl">
-                <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider mb-1">Expected Return</p>
-                <p className="text-xl font-bold text-indigo-700">Rs {expectedReturn.toLocaleString()}</p>
-              </div>
-              <div className="bg-emerald-50 p-5 rounded-2xl">
-                <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">Received</p>
-                <p className="text-xl font-bold text-emerald-700">Rs {totalPaid.toLocaleString()}</p>
-              </div>
-               <div className="bg-amber-50 p-5 rounded-2xl">
-                <p className="text-xs text-amber-600 font-bold uppercase tracking-wider mb-1">Remaining</p>
-                <p className="text-xl font-bold text-amber-700">Rs {Math.max(0, balance).toLocaleString()}</p>
-              </div>
-            </div>
-
-            {selectedInvestment.notes && (
-              <div className="bg-slate-50 p-5 rounded-2xl mb-6 relative z-10 border border-slate-100">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Notes</p>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedInvestment.notes}</p>
-              </div>
-            )}
-
-            <div className="flex space-x-4 relative z-10">
-               <button 
-                onClick={() => setViewState('add_funds')}
-                className="flex-1 py-4 bg-orange-50 text-orange-700 rounded-2xl font-bold hover:bg-orange-100 transition-colors flex items-center justify-center group"
-              >
-                <div className="bg-orange-200 p-1.5 rounded-full mr-2 group-hover:bg-orange-300 transition-colors">
-                    <ArrowRightCircle size={18} className="text-orange-700" />
-                </div>
-                Give Money
-              </button>
-              <button 
-                onClick={() => setViewState('add_pay')}
-                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-colors flex items-center justify-center group"
-              >
-                <div className="bg-emerald-500/50 p-1.5 rounded-full mr-2 group-hover:bg-emerald-500 transition-colors">
-                    <ArrowLeftCircle size={18} className="text-white" />
-                </div>
-                Take Money
-              </button>
-            </div>
+            <button 
+              onClick={() => { setInvForm({}); setViewState('add_inv'); }}
+              className="bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-300 hover:bg-indigo-700 transition-transform active:scale-95"
+            >
+              <Plus size={24} strokeWidth={3} />
+            </button>
           </div>
 
-          <h3 className="font-bold text-slate-800 text-lg px-2">Transaction Log</h3>
-          <div className="space-y-3">
-            {relatedPayments.length === 0 ? <p className="text-slate-400 text-sm px-2 italic">No transactions recorded.</p> : null}
-            {[...relatedPayments].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => {
-               const isMoneyOut = p.type === 'lend';
-               return (
-                <div key={p.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex items-center justify-between group hover:scale-[1.01] transition-transform shadow-sm">
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-full ${isMoneyOut ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                      {isMoneyOut ? <TrendingUp size={20} className="rotate-45" /> : <CheckCircle size={20} />}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                         <p className={`font-bold text-sm ${isMoneyOut ? 'text-orange-700' : 'text-slate-800'}`}>
-                          {isMoneyOut ? 'Money Given' : 'Payment Received'}
-                        </p>
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium">{new Date(p.date).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className={`font-extrabold ${isMoneyOut ? 'text-orange-600' : 'text-emerald-600'}`}>
-                        {isMoneyOut ? '-' : '+'}Rs {p.amount.toLocaleString()}
-                      </p>
-                      {p.receiptImage && (
-                         <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-wide cursor-pointer hover:underline">View Receipt</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col space-y-1 ml-2 pl-3 border-l border-slate-100">
-                       <button onClick={() => startEditPayment(p)} className="text-slate-300 hover:text-indigo-500 transition-colors"><Pencil size={16} /></button>
-                       <button 
-                        onClick={(e) => { e.stopPropagation(); setPaymentToDelete(p.id); }} 
-                        className="text-slate-300 hover:text-red-500 transition-colors"
-                       >
+          <div className="space-y-4">
+            {data.investments.length === 0 ? (
+               <div className="text-center py-16 text-slate-400 bg-white rounded-[2rem] border border-dashed border-slate-200">
+                 <div className="bg-slate-50 p-4 rounded-full inline-block mb-4">
+                   <Wallet size={32} className="text-slate-300" />
+                 </div>
+                 <p className="font-medium">No accounts tracked yet.</p>
+                 <button onClick={() => { setInvForm({}); setViewState('add_inv'); }} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first account</button>
+               </div>
+            ) : (
+              data.investments.map(inv => {
+                const progress = calculateProgress(inv.id, inv.amountInvested);
+                const customer = data.customers.find(c => c.id === inv.customerId);
+                return (
+                  <div 
+                    key={inv.id} 
+                    onClick={() => { setSelectedInvestment(inv); setViewState('details'); }}
+                    className="bg-white p-6 rounded-[2rem] shadow-[0_2px_15px_-4px_rgba(0,0,0,0.05)] border border-slate-100 cursor-pointer active:scale-[0.99] transition-all hover:shadow-md relative group overflow-hidden"
+                  >
+                     <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            startDeleteInvestment(inv.id);
+                        }}
+                        className="absolute top-5 right-5 text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-full p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                        title="Delete Account"
+                    >
                         <Trash2 size={16} />
-                       </button>
+                    </button>
+                    
+                    <div className="flex justify-between items-start mb-3 pr-10 relative z-10">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{inv.title}</h3>
+                        <p className="text-sm font-medium text-slate-500">{customer?.name}</p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                          <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-lg">{progress.percentage.toFixed(0)}%</span>
+                          {inv.manualReturnAmount && <span className="text-[10px] text-indigo-400 font-bold mt-1">MANUAL</span>}
+                      </div>
+                    </div>
+                    
+                    <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-4 relative z-10">
+                      <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress.percentage}%` }}></div>
+                    </div>
+                    
+                    <div className="flex justify-between text-xs font-semibold text-slate-400 relative z-10">
+                      <span className="flex items-center"><Calendar size={12} className="mr-1.5"/> {new Date(inv.endDate).toLocaleDateString()}</span>
+                      <span className="flex items-center text-slate-600"><Coins size={12} className="mr-1.5 text-indigo-500"/> Rs {progress.paid.toLocaleString()} <span className="text-slate-300 mx-1">/</span> Rs {progress.expectedTotal.toLocaleString()}</span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       );
     }
-
-    // RENDER: List
-    return (
-      <div className="space-y-6 animate-fade-in relative pb-10">
-        <div className="flex justify-between items-end px-2">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Accounts</h2>
-            <p className="text-slate-500 font-medium text-sm">Manage your portfolio</p>
-          </div>
-          <button 
-            onClick={() => { setInvForm({}); setViewState('add_inv'); }}
-            className="bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-300 hover:bg-indigo-700 transition-transform active:scale-95"
-          >
-            <Plus size={24} strokeWidth={3} />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {data.investments.length === 0 ? (
-             <div className="text-center py-16 text-slate-400 bg-white rounded-[2rem] border border-dashed border-slate-200">
-               <div className="bg-slate-50 p-4 rounded-full inline-block mb-4">
-                 <Wallet size={32} className="text-slate-300" />
-               </div>
-               <p className="font-medium">No accounts tracked yet.</p>
-               <button onClick={() => { setInvForm({}); setViewState('add_inv'); }} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first account</button>
-             </div>
-          ) : (
-            data.investments.map(inv => {
-              const progress = calculateProgress(inv.id, inv.amountInvested);
-              const customer = data.customers.find(c => c.id === inv.customerId);
-              return (
-                <div 
-                  key={inv.id} 
-                  onClick={() => { setSelectedInvestment(inv); setViewState('details'); }}
-                  className="bg-white p-6 rounded-[2rem] shadow-[0_2px_15px_-4px_rgba(0,0,0,0.05)] border border-slate-100 cursor-pointer active:scale-[0.99] transition-all hover:shadow-md relative group overflow-hidden"
-                >
-                   <button
-                      onClick={(e) => {
-                          e.stopPropagation();
-                          startDeleteInvestment(inv.id);
-                      }}
-                      className="absolute top-5 right-5 text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-full p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 shadow-sm"
-                      title="Delete Account"
-                  >
-                      <Trash2 size={16} />
-                  </button>
-                  
-                  <div className="flex justify-between items-start mb-3 pr-10 relative z-10">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{inv.title}</h3>
-                      <p className="text-sm font-medium text-slate-500">{customer?.name}</p>
-                    </div>
-                    <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-lg">{progress.percentage.toFixed(0)}%</span>
-                  </div>
-                  
-                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-4 relative z-10">
-                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress.percentage}%` }}></div>
-                  </div>
-                  
-                  <div className="flex justify-between text-xs font-semibold text-slate-400 relative z-10">
-                    <span className="flex items-center"><Calendar size={12} className="mr-1.5"/> {new Date(inv.endDate).toLocaleDateString()}</span>
-                    <span className="flex items-center text-slate-600"><Coins size={12} className="mr-1.5 text-indigo-500"/> Rs {progress.paid.toLocaleString()} <span className="text-slate-300 mx-1">/</span> Rs {(inv.amountInvested * (1 + inv.expectedReturnRate/100)).toLocaleString()}</span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    );
+    
+    return null;
   };
 
   return (
@@ -769,7 +811,7 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
               </button>
               <button 
                 onClick={confirmDeletePayment}
-                className="flex-1 py-3.5 px-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-colors shadow-lg shadow-red-200"
+                className="flex-1 py-3.5 px-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
               >
                 Delete
               </button>

@@ -12,7 +12,8 @@ export interface Investment {
   customerId: string;
   title: string; // e.g., "Real Estate Project A"
   amountInvested: number;
-  expectedReturnRate: number; // percentage
+  expectedReturnRate: number; // percentage (Automatic calculation)
+  manualReturnAmount?: number; // Optional override: Fixed amount instead of percentage
   startDate: string;
   endDate: string; // Expected return period end
   status: 'active' | 'completed' | 'cancelled';
