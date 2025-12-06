@@ -8,8 +8,6 @@ import Settings from './components/Settings';
 import AppLock from './components/AppLock';
 import Login from './components/Login';
 import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from './types';
-import { auth } from './firebaseConfig';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { saveAppData, loadAppData } from './services/storageService';
 
 // Default / Empty State
@@ -32,7 +30,7 @@ const INITIAL_DATA: AppState = {
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -43,50 +41,42 @@ const App: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
-  // Firebase Auth Listener & Data Loading (Offline First logic)
+  // Initialize Auth and Data from LocalStorage (Simulated Auth)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setIsAuthenticated(!!user);
+    const isAuth = localStorage.getItem('investTrack_isAuthenticated') === 'true';
+    const email = localStorage.getItem('investTrack_userEmail');
+    
+    if (isAuth && email) {
+      setCurrentUserEmail(email);
+      setIsAuthenticated(true);
       
-      if (user) {
-        // User is logged in (could be offline if session is cached)
-        // Load THEIR specific data from localStorage
-        const localData = loadAppData(user.uid);
-        if (localData) {
-          setData(localData);
-        } else {
-          // New user on this device? Start with empty/default data
-          // We intentionally do not use the global 'investTrackData' fallback to ensure data separation
-          setData(INITIAL_DATA);
-        }
+      // Load data specifically for this user from LocalStorage
+      const localData = loadAppData(email);
+      if (localData) {
+        setData(localData);
       } else {
-        // User is logged out. 
-        // Reset state to empty to prevent data leakage between users on shared device
+        // First time user on this device
         setData(INITIAL_DATA);
       }
-      
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
+    }
+    setAuthLoading(false);
   }, []);
 
-  // Check initial lock state
+  // Check initial lock state (if App Lock is enabled)
   useEffect(() => {
     if (isAuthenticated && data.security.enabled) {
       setIsLocked(true);
     }
   }, [isAuthenticated, data.security.enabled]);
 
-  // Persist Data to LocalStorage whenever it changes
-  // This is the CORE of the offline functionality.
+  // Auto-Save: Persist Data to LocalStorage whenever it changes
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      saveAppData(currentUser.uid, data);
+    if (isAuthenticated && currentUserEmail) {
+      saveAppData(currentUserEmail, data);
     }
-  }, [data, isAuthenticated, currentUser]);
+  }, [data, isAuthenticated, currentUserEmail]);
 
-  // Auto-lock Logic
+  // Auto-lock Logic (Idle Timer)
   const checkForInactivity = useCallback(() => {
     if (isAuthenticated && data.security.enabled && data.security.autoLockMinutes > 0 && !isLocked) {
       const now = Date.now();
@@ -181,17 +171,22 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      // Data is cleared from state by the auth listener above
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
+  const handleSignOut = () => {
+    localStorage.removeItem('investTrack_isAuthenticated');
+    localStorage.removeItem('investTrack_userEmail');
+    setIsAuthenticated(false);
+    setCurrentUserEmail(null);
+    setData(INITIAL_DATA);
   };
 
   const handleLoginSuccess = () => {
-    // handled by auth listener
+    const email = localStorage.getItem('investTrack_userEmail');
+    if (email) {
+      setCurrentUserEmail(email);
+      setIsAuthenticated(true);
+      const localData = loadAppData(email);
+      if (localData) setData(localData);
+    }
   };
 
   const renderView = () => {

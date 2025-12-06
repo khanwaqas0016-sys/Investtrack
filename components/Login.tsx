@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword
-} from 'firebase/auth';
-import { auth } from '../firebaseConfig';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -17,32 +12,24 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
+    // Simulated Authentication
+    setTimeout(() => {
+      // Basic validation
+      if (email.includes('@') && password.length >= 6) {
+        // Successful "Login" - persist to local storage
+        localStorage.setItem('investTrack_isAuthenticated', 'true');
+        localStorage.setItem('investTrack_userEmail', email);
+        onLoginSuccess();
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        setError(password.length < 6 ? "Password must be at least 6 characters" : "Invalid email address");
       }
-      onLoginSuccess();
-    } catch (err: any) {
-      console.error(err);
-      let msg = "Authentication failed";
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        msg = "Invalid email or password";
-      } else if (err.code === 'auth/email-already-in-use') {
-        msg = "Email already in use";
-      } else if (err.code === 'auth/weak-password') {
-        msg = "Password should be at least 6 characters";
-      }
-      setError(msg);
-    } finally {
       setLoading(false);
-    }
+    }, 800);
   };
 
   return (
@@ -65,7 +52,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
               <div className="relative">
                 <Mail className="absolute left-4 top-3.5 text-slate-400" size={20} />
