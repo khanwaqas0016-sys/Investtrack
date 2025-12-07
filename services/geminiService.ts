@@ -2,14 +2,18 @@ import { GoogleGenAI } from "@google/genai";
 import { AppState, AIAnalysisResult } from '../types';
 
 const getClient = () => {
-  // Use process.env.API_KEY as per guidelines.
-  return new GoogleGenAI({ apiKey: process.env.API_KEY }); 
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key not found");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
   const ai = getClient();
   
   // Prepare a summary of the data to avoid token limits if data is huge
+  // Filter out 'lend' type from collected amounts as those are money OUT
   const summaryData = {
     totalCustomers: data.customers.length,
     activeInvestments: data.investments.filter(i => i.status === 'active').length,

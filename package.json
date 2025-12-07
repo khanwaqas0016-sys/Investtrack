@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Investment tracking application",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -14,7 +17,7 @@
     "react-dom": "^18.3.1",
     "lucide-react": "^0.344.0",
     "recharts": "^2.12.2",
-    "@google/generative-ai": "^0.7.0"
+    "@google/genai": "^0.1.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
