@@ -2,12 +2,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppState, AIAnalysisResult } from '../types';
 
 const getClient = () => {
-  // Use Vite's import.meta.env for environment variables on Vercel.
-  // We cast to 'any' to avoid TypeScript errors if types aren't configured.
-  const apiKey = (import.meta as any).env.VITE_API_KEY;
+  // Access key via process.env.API_KEY, which is mapped in vite.config.ts
+  const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    console.error("VITE_API_KEY is missing. Please add it to your Vercel Environment Variables.");
+    console.error("API Key not found. Please set VITE_API_KEY in your Vercel Environment Variables.");
     throw new Error("API Key not found");
   }
   return new GoogleGenerativeAI(apiKey);

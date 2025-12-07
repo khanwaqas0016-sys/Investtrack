@@ -72,19 +72,18 @@
         100% { opacity: 0; transform: translateX(-50%) translateY(400px) scale(1); }
       }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "path": "https://aistudiocdn.com/path@^0.12.7",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "@google/generative-ai": "https://aistudiocdn.com/@google/generative-ai@^0.24.1",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "@google/generative-ai": "https://aistudiocdn.com/@google/generative-ai@^0.24.1"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
@@ -106,7 +105,7 @@
             div.classList.add("fly-down");
           }
 
-          div.textContent = "Rs"; // Changed from emoji to Rs
+          div.textContent = "Rs"; 
           
           // Randomize Position (spread widely across the center)
           const randomLeft = 30 + Math.random() * 40; // 30% to 70% of screen width
