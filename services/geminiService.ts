@@ -2,18 +2,27 @@ import { GoogleGenAI } from "@google/genai";
 import { AppState, AIAnalysisResult } from '../types';
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Use Vite's import.meta.env for environment variables
+  // Fallback to process.env if needed, though in Vite env it's usually import.meta
+  const apiKey = (import.meta as any).env.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
+  
   if (!apiKey) {
-    throw new Error("API Key not found");
+    // We log but don't throw immediately to avoid crashing the app on load if the key isn't used yet.
+    // However, generating content will fail.
+    console.warn("VITE_API_KEY is missing. AI features will not work.");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: apiKey || 'dummy-key' }); 
 };
 
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
+  const apiKey = (import.meta as any).env.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
+  if (!apiKey) {
+    throw new Error("API Key not configured. Please set VITE_API_KEY.");
+  }
+
   const ai = getClient();
   
   // Prepare a summary of the data to avoid token limits if data is huge
-  // Filter out 'lend' type from collected amounts as those are money OUT
   const summaryData = {
     totalCustomers: data.customers.length,
     activeInvestments: data.investments.filter(i => i.status === 'active').length,

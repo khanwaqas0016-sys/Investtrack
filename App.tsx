@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Layout from './Layout';
-import Dashboard from './Dashboard';
-import InvestmentList from './InvestmentList';
-import CustomerList from './CustomerList';
-import TransactionHistory from './TransactionHistory';
-import Settings from './Settings';
-import AppLock from './AppLock';
-import Login from './Login';
-import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from '../types';
-import { saveAppData, loadAppData } from '../services/storageService';
+import Layout from './components/Layout';
+import Dashboard from './components/Dashboard';
+import InvestmentList from './components/InvestmentList';
+import CustomerList from './components/CustomerList';
+import TransactionHistory from './components/TransactionHistory';
+import Settings from './components/Settings';
+import AppLock from './components/AppLock';
+import Login from './components/Login';
+import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from './types';
+import { saveAppData, loadAppData } from './services/storageService';
 
 // Default / Empty State
 const INITIAL_DATA: AppState = {
