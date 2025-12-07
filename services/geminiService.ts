@@ -1,19 +1,22 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppState, AIAnalysisResult } from '../types';
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Use Vite's import.meta.env for environment variables on Vercel.
+  // We cast to 'any' to avoid TypeScript errors if types aren't configured.
+  const apiKey = (import.meta as any).env.VITE_API_KEY;
+  
   if (!apiKey) {
+    console.error("VITE_API_KEY is missing. Please add it to your Vercel Environment Variables.");
     throw new Error("API Key not found");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenerativeAI(apiKey);
 };
 
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
-  const ai = getClient();
+  const genAI = getClient();
   
   // Prepare a summary of the data to avoid token limits if data is huge
-  // Filter out 'lend' type from collected amounts as those are money OUT
   const summaryData = {
     totalCustomers: data.customers.length,
     activeInvestments: data.investments.filter(i => i.status === 'active').length,
@@ -40,23 +43,27 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
+    // Use the stable model name
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json"
       }
     });
 
-    const text = response.text;
+    const response = await result.response;
+    const text = response.text();
+
     if (!text) throw new Error("No response from AI");
 
-    const result = JSON.parse(text);
+    const resultJson = JSON.parse(text);
     
     return {
-      summary: result.summary || "Unable to generate summary.",
-      riskAssessment: Array.isArray(result.riskAssessment) ? result.riskAssessment.join('. ') : (result.riskAssessment || "No risks identified."),
-      opportunities: Array.isArray(result.opportunities) ? result.opportunities.join('. ') : (result.opportunities || "No specific opportunities found."),
+      summary: resultJson.summary || "Unable to generate summary.",
+      riskAssessment: Array.isArray(resultJson.riskAssessment) ? resultJson.riskAssessment.join('. ') : (resultJson.riskAssessment || "No risks identified."),
+      opportunities: Array.isArray(resultJson.opportunities) ? resultJson.opportunities.join('. ') : (resultJson.opportunities || "No specific opportunities found."),
       timestamp: Date.now()
     };
 

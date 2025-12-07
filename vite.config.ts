@@ -11,6 +11,7 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom'],
           'vendor-ui': ['lucide-react', 'recharts'],
+          'vendor-ai': ['@google/generative-ai']
         }
       }
     }
