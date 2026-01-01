@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
-import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles } from 'lucide-react';
+import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User } from 'lucide-react';
 
 interface DashboardProps {
   data: AppState;
@@ -60,7 +59,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     
   const currentNetPosition = totalCollected - totalInvested;
   
-  // FIXED: Calculation now respects manualReturnAmount if present
   const totalExpectedReturn = data.investments.reduce((sum, i) => {
     const expected = i.manualReturnAmount
       ? i.manualReturnAmount
@@ -89,6 +87,33 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
 
     return Object.entries(months).map(([name, value]) => ({ name, value }));
   }, [data.payments]);
+
+  // Logic for "Monthly Contributors" (Customers who paid this month)
+  const currentMonthContributors = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const contributors: Record<string, { name: string; amount: number; profileImage?: string }> = {};
+
+    data.payments.forEach(p => {
+      const pDate = new Date(p.date);
+      if (pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.type !== 'lend') {
+        const investment = data.investments.find(i => i.id === p.investmentId);
+        if (investment) {
+          const customer = data.customers.find(c => c.id === investment.customerId);
+          if (customer) {
+            if (!contributors[customer.id]) {
+              contributors[customer.id] = { name: customer.name, amount: 0, profileImage: customer.profileImage };
+            }
+            contributors[customer.id].amount += p.amount;
+          }
+        }
+      }
+    });
+
+    return Object.values(contributors).sort((a, b) => b.amount - a.amount);
+  }, [data.payments, data.investments, data.customers]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -125,69 +150,123 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         />
       </div>
 
-      <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] transition-shadow duration-500">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h3 className="text-xl font-bold text-slate-800">Income Analysis</h3>
-            <p className="text-sm text-slate-400 font-medium">Monthly collections over the last 6 months</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Income Analysis Chart */}
+        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] transition-shadow duration-500">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">Income Analysis</h3>
+              <p className="text-sm text-slate-400 font-medium">Monthly collections over the last 6 months</p>
+            </div>
+            <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold flex items-center border border-emerald-100 shadow-sm">
+               <ArrowUpRight size={14} className="mr-1" />
+               Income Stream
+            </div>
           </div>
-          <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold flex items-center border border-emerald-100 shadow-sm">
-             <ArrowUpRight size={14} className="mr-1" />
-             Income Stream
+          
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.4}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
+                  tickFormatter={(value) => `Rs ${value}`}
+                />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc', radius: 8}}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-slate-900 text-white text-xs rounded-xl py-2 px-3 shadow-xl transform transition-all">
+                          <p className="font-bold mb-1 opacity-70">{payload[0].payload.name}</p>
+                          <p className="text-base font-bold text-emerald-400">Rs {Number(payload[0].value).toLocaleString()}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={40}>
+                  {chartData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={index === chartData.length - 1 ? 'url(#colorUv)' : '#e2e8f0'} 
+                      className="transition-all duration-500 hover:opacity-100"
+                      style={{
+                          filter: index === chartData.length - 1 ? 'drop-shadow(0px 4px 10px rgba(16, 185, 129, 0.2))' : 'none'
+                      }}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
-        
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.4}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
-                tickFormatter={(value) => `Rs ${value}`}
-              />
-              <Tooltip 
-                cursor={{fill: '#f8fafc', radius: 8}}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-slate-900 text-white text-xs rounded-xl py-2 px-3 shadow-xl transform transition-all">
-                        <p className="font-bold mb-1 opacity-70">{payload[0].payload.name}</p>
-                        <p className="text-base font-bold text-emerald-400">Rs {Number(payload[0].value).toLocaleString()}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={40}>
-                {chartData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={index === chartData.length - 1 ? 'url(#colorUv)' : '#e2e8f0'} 
-                    className="transition-all duration-500 hover:opacity-100"
-                    style={{
-                        filter: index === chartData.length - 1 ? 'drop-shadow(0px 4px 10px rgba(16, 185, 129, 0.2))' : 'none'
-                    }}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+
+        {/* Current Month Contributors Section */}
+        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex flex-col">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              Contributors <Users size={18} className="text-indigo-500" />
+            </h3>
+            <p className="text-sm text-slate-400 font-medium">Who paid this month</p>
+          </div>
+          
+          <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[300px] lg:max-h-full scrollbar-hide">
+            {currentMonthContributors.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                <div className="bg-slate-50 p-4 rounded-full mb-3">
+                  <User size={32} className="opacity-20" />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-widest opacity-60">No payments yet</p>
+              </div>
+            ) : (
+              currentMonthContributors.map((contributor, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/50 border border-slate-100 transition-all hover:bg-slate-50 group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center overflow-hidden border border-indigo-200">
+                      {contributor.profileImage ? (
+                        <img src={contributor.profileImage} alt={contributor.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <User size={18} className="text-indigo-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-700 leading-none">{contributor.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Current Month</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-extrabold text-emerald-600">Rs {contributor.amount.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          
+          {currentMonthContributors.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400">Monthly Total</span>
+              <span className="text-base font-black text-slate-800">
+                Rs {currentMonthContributors.reduce((s, c) => s + c.amount, 0).toLocaleString()}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
