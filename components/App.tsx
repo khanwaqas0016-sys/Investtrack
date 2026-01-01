@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import InvestmentList from './components/InvestmentList';
-import CustomerList from './components/CustomerList';
-import TransactionHistory from './components/TransactionHistory';
-import Settings from './components/Settings';
-import AppLock from './components/AppLock';
-import Login from './components/Login';
-import { AppState, View, Customer, Investment, Payment, SecuritySettings, BackupSettings } from './types';
-import { saveAppData, loadAppData } from './services/storageService';
+import Layout from './Layout';
+import Dashboard from './Dashboard';
+import InvestmentList from './InvestmentList';
+import CustomerList from './CustomerList';
+import TransactionHistory from './TransactionHistory';
+import Settings from './Settings';
+import AppLock from './AppLock';
+import Login from './Login';
+import { AppState, View, Customer, Investment, Payment } from '../types';
+import { saveAppData, loadAppData } from '../services/storageService';
 
-// Default / Empty State
 const INITIAL_DATA: AppState = {
   customers: [],
   investments: [],
@@ -32,16 +31,11 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  
-  // App Data State
   const [data, setData] = useState<AppState>(INITIAL_DATA);
-
   const [isLocked, setIsLocked] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
-  // Initialize Auth and Data from LocalStorage (Simulated Auth)
   useEffect(() => {
     const isAuth = localStorage.getItem('investTrack_isAuthenticated') === 'true';
     const email = localStorage.getItem('investTrack_userEmail');
@@ -49,38 +43,32 @@ const App: React.FC = () => {
     if (isAuth && email) {
       setCurrentUserEmail(email);
       setIsAuthenticated(true);
-      
-      // Load data specifically for this user from LocalStorage
       const localData = loadAppData(email);
       if (localData) {
         setData(localData);
       } else {
-        // First time user on this device
         setData(INITIAL_DATA);
       }
     }
     setAuthLoading(false);
   }, []);
 
-  // Check initial lock state (if App Lock is enabled)
   useEffect(() => {
     if (isAuthenticated && data.security.enabled) {
       setIsLocked(true);
     }
   }, [isAuthenticated, data.security.enabled]);
 
-  // Auto-Save: Persist Data to LocalStorage whenever it changes
   useEffect(() => {
     if (isAuthenticated && currentUserEmail) {
       saveAppData(currentUserEmail, data);
     }
   }, [data, isAuthenticated, currentUserEmail]);
 
-  // Auto-lock Logic (Idle Timer)
   const checkForInactivity = useCallback(() => {
     if (isAuthenticated && data.security.enabled && data.security.autoLockMinutes > 0 && !isLocked) {
       const now = Date.now();
-      const idleTime = (now - lastActivity) / 1000 / 60; // in minutes
+      const idleTime = (now - lastActivity) / 1000 / 60;
       if (idleTime >= data.security.autoLockMinutes) {
         setIsLocked(true);
       }
@@ -88,13 +76,11 @@ const App: React.FC = () => {
   }, [isAuthenticated, lastActivity, isLocked, data.security]);
 
   useEffect(() => {
-    const interval = setInterval(checkForInactivity, 5000); // Check every 5s
-    
+    const interval = setInterval(checkForInactivity, 5000);
     const resetTimer = () => setLastActivity(Date.now());
     window.addEventListener('mousemove', resetTimer);
     window.addEventListener('keypress', resetTimer);
     window.addEventListener('touchstart', resetTimer);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('mousemove', resetTimer);
@@ -103,8 +89,6 @@ const App: React.FC = () => {
     };
   }, [checkForInactivity]);
 
-
-  // Update Handlers
   const updateData = (partialData: Partial<AppState>) => {
       setData(prev => ({ ...prev, ...partialData }));
   };

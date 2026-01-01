@@ -1,12 +1,9 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { AppState, AIAnalysisResult } from '../types';
 
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
-  // Always use a new instance to ensure the most up-to-date API key is used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   
-  // Prepare a summary of the data to avoid token limits
   const summaryData = {
     totalCustomers: data.customers.length,
     activeInvestments: data.investments.filter(i => i.status === 'active').length,
@@ -36,7 +33,7 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json"
@@ -57,7 +54,6 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
 
   } catch (error) {
     console.error("AI Analysis failed:", error);
-    // Return a fallback so the UI doesn't crash
     return {
       summary: "Analysis currently unavailable. Please check your connection.",
       riskAssessment: "Unable to assess risks at this time.",

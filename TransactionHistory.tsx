@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AppState } from '../types';
-import { Download, FileText, Image as ImageIcon, ArrowUpRight, ArrowDownLeft, Trash2, AlertTriangle } from 'lucide-react';
+import { AppState } from './types';
+import { Download, Image as ImageIcon, ArrowUpRight, ArrowDownLeft, Trash2, AlertTriangle } from 'lucide-react';
 
 interface TransactionHistoryProps {
   data: AppState;
@@ -11,7 +11,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ data, onDeleteP
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
 
   const handleExportCSV = () => {
-    // Flatten data for CSV
     const headers = ['Date', 'Type', 'Amount', 'Direction', 'Investment', 'Customer'];
     const rows = data.payments.map(p => {
       const inv = data.investments.find(i => i.id === p.investmentId);
@@ -110,7 +109,6 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ data, onDeleteP
         )}
       </div>
 
-      {/* Delete Confirmation Modal for Payments */}
       {paymentToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 border border-slate-100">
