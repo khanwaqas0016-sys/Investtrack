@@ -4,7 +4,8 @@ import { AppState, SecuritySettings, BackupSettings } from '../types';
 import { 
   Lock, Shield, Smartphone, Clock, Download, 
   ChevronRight, ToggleLeft, ToggleRight, CheckCircle, 
-  Database, Mail, Phone, User, Upload, LogOut, Share2 
+  Database, Mail, Phone, User, Upload, LogOut, Share2, 
+  HardDrive, Info
 } from 'lucide-react';
 import AppLock from './AppLock';
 
@@ -20,6 +21,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [importStatus, setImportStatus] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
+  const [storagePlace, setStoragePlace] = useState<'local' | 'cloud'>('local');
 
   // Security Handlers
   const toggleAppLock = () => {
@@ -51,7 +53,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
         try {
           const file = new File([backupData], fileName, { type: 'application/json' });
           
-          // Check if file sharing is specifically supported
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
@@ -61,7 +62,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
             finalizeExport();
             return;
           } else {
-            // Fallback to text sharing if file sharing isn't supported
             await navigator.share({
               title: 'InvestTrack Pro Backup',
               text: backupData
@@ -74,7 +74,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
         }
       }
 
-      // 2. Fallback to traditional download (Best for Desktop)
+      // 2. Fallback to traditional download
       const blob = new Blob([backupData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -129,66 +129,22 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      <div className="flex justify-between items-center px-2">
+    <div className="space-y-8 animate-fade-in pb-24">
+      <div className="flex justify-between items-center px-1">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Settings</h2>
           <p className="text-slate-500 font-medium text-sm">Security, Data & Support</p>
         </div>
         <button 
           onClick={onSignOut}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-colors active:scale-95"
+          className="bg-[#F1F5F9] hover:bg-slate-200 text-slate-600 px-5 py-2.5 rounded-xl text-sm font-bold flex items-center transition-all active:scale-95 shadow-sm"
         >
           <LogOut size={16} className="mr-2" />
           Sign Out
         </button>
       </div>
 
-      {/* Support Section */}
-      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="bg-blue-50 p-2.5 rounded-xl">
-             <User className="text-blue-600" size={24} />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Contact Support</h3>
-            <p className="text-xs text-slate-500">Developer Information</p>
-          </div>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700">
-              <User size={20} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 font-bold uppercase">Developed By</p>
-              <p className="font-bold text-slate-800">Waqas Ahmad</p>
-            </div>
-          </div>
-          
-          <a href="mailto:khanwaqas0016@gmail.com" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-indigo-600">
-              <Mail size={20} />
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-xs text-slate-400 font-bold uppercase">Email</p>
-              <p className="font-bold text-slate-800 truncate">khanwaqas0016@gmail.com</p>
-            </div>
-          </a>
-
-          <a href="tel:+971582685224" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-green-600">
-              <Phone size={20} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 font-bold uppercase">Mobile / WhatsApp</p>
-              <p className="font-bold text-slate-800">+971 58 268 5224</p>
-            </div>
-          </a>
-        </div>
-      </section>
-
-      {/* Backup Section */}
+      {/* Backup Section - Moved to top per request */}
       <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="bg-emerald-50 p-2.5 rounded-xl">
@@ -196,11 +152,41 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-800">Backup & Restore</h3>
-            <p className="text-xs text-slate-500">Manage your data locally</p>
+            <p className="text-xs text-slate-500 font-medium">Manage your data locally</p>
           </div>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-6 space-y-6">
+            {/* Storage Place Selection */}
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                Select Local Storage Place
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setStoragePlace('local')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all font-bold text-sm ${
+                    storagePlace === 'local' 
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                      : 'border-slate-100 bg-slate-50 text-slate-400 grayscale'
+                  }`}
+                >
+                  <HardDrive size={18} />
+                  Device Storage
+                </button>
+                <button 
+                  disabled
+                  className="flex items-center justify-center gap-2 p-4 rounded-2xl border-2 border-slate-50 bg-slate-50 text-slate-300 cursor-not-allowed font-bold text-sm"
+                >
+                  <Info size={18} />
+                  Cloud (Pro)
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1 ml-1">
+                <Info size={12} /> Data is currently encrypted in your browser's Local Storage.
+              </p>
+            </div>
+
              <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 text-xs text-slate-500">
                 <CheckCircle size={14} className="text-emerald-500"/>
                 Last Export: <span className="font-mono text-slate-700 font-bold">{data.backup.lastBackupDate ? new Date(data.backup.lastBackupDate).toLocaleString() : 'Never'}</span>
@@ -228,7 +214,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
             </div>
             
             {importStatus && (
-               <p className={`text-center text-sm font-medium mt-2 animate-bounce ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
+               <p className={`text-center text-sm font-medium animate-bounce ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
                  {importStatus}
                </p>
             )}
@@ -243,7 +229,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-800">App Lock</h3>
-            <p className="text-xs text-slate-500">Protect your financial data</p>
+            <p className="text-xs text-slate-500 font-medium">Protect your financial data</p>
           </div>
         </div>
 
@@ -318,6 +304,50 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                      </button>
                 </div>
             )}
+        </div>
+      </section>
+
+      {/* Support Section - Moved to bottom */}
+      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-blue-50 p-2.5 rounded-xl">
+             <User className="text-blue-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Contact Support</h3>
+            <p className="text-xs text-slate-500 font-medium">Developer Information</p>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700">
+              <User size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Developed By</p>
+              <p className="font-bold text-slate-800">Waqas Ahmad</p>
+            </div>
+          </div>
+          
+          <a href="mailto:khanwaqas0016@gmail.com" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-indigo-600">
+              <Mail size={20} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Email</p>
+              <p className="font-bold text-slate-800 truncate">khanwaqas0016@gmail.com</p>
+            </div>
+          </a>
+
+          <a href="tel:+971582685224" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-green-600">
+              <Phone size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mobile / WhatsApp</p>
+              <p className="font-bold text-slate-800">+971 58 268 5224</p>
+            </div>
+          </a>
         </div>
       </section>
 
