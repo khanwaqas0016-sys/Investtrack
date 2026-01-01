@@ -1,3 +1,4 @@
+
 {
   "name": "invest-track-pro",
   "version": "1.0.0",
@@ -17,7 +18,7 @@
     "react-dom": "^18.3.1",
     "lucide-react": "^0.344.0",
     "recharts": "^2.12.2",
-    "@google/generative-ai": "^0.19.0"
+    "@google/genai": "^1.31.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

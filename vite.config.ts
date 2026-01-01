@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -5,8 +6,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
+    // This allows the code to use process.env.API_KEY in the browser
     'process.env': {
-      // Map VITE_API_KEY from Vercel to process.env.API_KEY for compatibility
       API_KEY: process.env.VITE_API_KEY || process.env.API_KEY
     }
   },
@@ -17,7 +18,7 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom'],
           'vendor-ui': ['lucide-react', 'recharts'],
-          'vendor-ai': ['@google/generative-ai']
+          'vendor-ai': ['@google/genai']
         }
       }
     }
