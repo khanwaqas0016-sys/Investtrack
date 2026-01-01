@@ -219,7 +219,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-indigo-600 font-bold">Loading InvestTrack...</p>
+          <p className="text-indigo-600 font-bold">Loading InvestTrack Pro...</p>
         </div>
       </div>
     );

@@ -1,7 +1,11 @@
 
 import React, { useState } from 'react';
 import { AppState, SecuritySettings, BackupSettings } from '../types';
-import { Lock, Shield, Smartphone, Clock, Cloud, Download, History, ChevronRight, ToggleLeft, ToggleRight, CheckCircle, Save, Database, RefreshCw, Mail, Phone, User, Upload, LogOut } from 'lucide-react';
+import { 
+  Lock, Shield, Smartphone, Clock, Download, 
+  ChevronRight, ToggleLeft, ToggleRight, CheckCircle, 
+  Database, Mail, Phone, User, Upload, LogOut, Share2 
+} from 'lucide-react';
 import AppLock from './AppLock';
 
 interface SettingsProps {
@@ -15,14 +19,13 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBackup, onSignOut, onImport }) => {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [importStatus, setImportStatus] = useState<string>('');
+  const [isExporting, setIsExporting] = useState(false);
 
   // Security Handlers
   const toggleAppLock = () => {
     if (!data.security.enabled) {
-      // Enabling: Requires setting a PIN
       setShowPinSetup(true);
     } else {
-      // Disabling
       onUpdateSecurity({ ...data.security, enabled: false });
     }
   };
@@ -36,36 +39,69 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
     setShowPinSetup(false);
   };
 
-  // Backup Handlers
-  const handleExportBackup = () => {
+  // Improved Mobile-Friendly Export
+  const handleExportBackup = async () => {
+    setIsExporting(true);
     try {
-      // Export Local Storage data
       const backupData = JSON.stringify(data, null, 2);
+      const fileName = `InvestTrack_Backup_${new Date().toISOString().split('T')[0]}.json`;
+
+      // 1. Try Native Web Share API (Best for Mobile)
+      if (navigator.share) {
+        try {
+          const file = new File([backupData], fileName, { type: 'application/json' });
+          
+          // Check if file sharing is specifically supported
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'InvestTrack Pro Backup',
+              text: 'My investment data backup file.',
+            });
+            finalizeExport();
+            return;
+          } else {
+            // Fallback to text sharing if file sharing isn't supported
+            await navigator.share({
+              title: 'InvestTrack Pro Backup',
+              text: backupData
+            });
+            finalizeExport();
+            return;
+          }
+        } catch (shareErr) {
+          console.log("Share cancelled or failed, trying download fallback...");
+        }
+      }
+
+      // 2. Fallback to traditional download (Best for Desktop)
       const blob = new Blob([backupData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      
       const a = document.createElement('a');
       a.href = url;
-      a.download = `InvestTrack_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       
-      // Cleanup after a short delay to ensure browser handles the download
       setTimeout(() => {
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
-        }
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 100);
+        finalizeExport();
+      }, 200);
 
-      onUpdateBackup({
-        ...data.backup,
-        lastBackupDate: new Date().toISOString()
-      });
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Failed to export data. Please try again.");
+      alert("Failed to export data. If you are on mobile, ensure your browser supports file saving.");
+    } finally {
+      setIsExporting(false);
     }
+  };
+
+  const finalizeExport = () => {
+    onUpdateBackup({
+      ...data.backup,
+      lastBackupDate: new Date().toISOString()
+    });
   };
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,13 +113,10 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
           const json = event.target?.result as string;
           const parsedData = JSON.parse(json);
           
-          // Basic validation to check if it has the right shape
           if (parsedData.customers && parsedData.investments && parsedData.payments) {
             onImport(parsedData);
             setImportStatus('Backup restored successfully!');
-            setTimeout(() => {
-              setImportStatus('');
-            }, 3000);
+            setTimeout(() => setImportStatus(''), 3000);
           } else {
             setImportStatus('Error: Invalid backup file format.');
           }
@@ -97,14 +130,14 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center px-2">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Settings</h2>
           <p className="text-slate-500 font-medium text-sm">Security, Data & Support</p>
         </div>
         <button 
           onClick={onSignOut}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-colors"
+          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-colors active:scale-95"
         >
           <LogOut size={16} className="mr-2" />
           Sign Out
@@ -175,14 +208,19 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button 
+                    disabled={isExporting}
                     onClick={handleExportBackup}
-                    className="py-4 bg-[#111827] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] border border-slate-800"
+                    className="py-4 bg-[#111827] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-black transition-all active:scale-[0.98] border border-slate-800 disabled:opacity-50"
                 >
-                    <Download size={20} />
-                    Export JSON
+                    {isExporting ? <span className="animate-pulse">Preparing...</span> : (
+                      <>
+                        <Share2 size={20} />
+                        Export Data
+                      </>
+                    )}
                 </button>
                 
-                <label className="py-4 bg-white border-2 border-dashed border-slate-200 text-slate-600 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                <label className="py-4 bg-white border-2 border-dashed border-slate-200 text-slate-600 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors active:scale-[0.98]">
                     <Upload size={20} />
                     Import JSON
                     <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
@@ -190,7 +228,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
             </div>
             
             {importStatus && (
-               <p className={`text-center text-sm font-medium mt-2 ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
+               <p className={`text-center text-sm font-medium mt-2 animate-bounce ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
                  {importStatus}
                </p>
             )}
@@ -210,7 +248,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
         </div>
 
         <div className="p-2">
-            {/* Master Toggle */}
             <div className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors">
                 <div className="flex items-center gap-3">
                     <Lock size={20} className="text-slate-400" />
@@ -224,10 +261,8 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                 </button>
             </div>
 
-            {/* Lock Settings - Only visible if enabled */}
             {data.security.enabled && (
                 <div className="mt-2 pl-4 pr-2 space-y-1 animate-fade-in">
-                    {/* Unlock Method */}
                     <div className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50">
                         <div className="flex items-center gap-3">
                             <Smartphone size={20} className="text-slate-400" />
@@ -253,7 +288,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                         </div>
                     </div>
 
-                    {/* Auto Lock Timer */}
                     <div className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50">
                         <div className="flex items-center gap-3">
                             <Clock size={20} className="text-slate-400" />
@@ -275,7 +309,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                         </select>
                     </div>
 
-                     {/* Change PIN Button */}
                      <button 
                         onClick={() => setShowPinSetup(true)}
                         className="w-full text-left p-4 rounded-2xl hover:bg-slate-50 flex items-center justify-between group"
@@ -288,7 +321,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
         </div>
       </section>
 
-      {/* Pin Setup Modal Overlay */}
       {showPinSetup && (
         <AppLock 
             pin="" 
