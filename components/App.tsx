@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from './Layout';
 import Dashboard from './Dashboard';
@@ -173,6 +174,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImport = (importedData: AppState) => {
+    setData(importedData);
+  };
+
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
@@ -202,6 +207,7 @@ const App: React.FC = () => {
             onUpdateSecurity={(sec) => updateData({ security: sec })}
             onUpdateBackup={(back) => updateData({ backup: back })}
             onSignOut={handleSignOut}
+            onImport={handleImport}
         />;
       default:
         return <Dashboard data={data} />;
