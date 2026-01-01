@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppState, Investment, Payment, Customer, generateUUID } from '../types';
-import { Plus, Calendar, Upload, CheckCircle, Clock, ArrowRightCircle, ArrowLeftCircle, TrendingUp, Trash2, Pencil, X, Save, AlertTriangle, FileText, Printer, Mail, Phone, ArrowLeft, Wallet, Coins } from 'lucide-react';
+import { Plus, Calendar, Upload, CheckCircle, Clock, ArrowRightCircle, ArrowLeftCircle, TrendingUp, Trash2, Pencil, X, Save, AlertTriangle, FileText, Printer, Mail, Phone, ArrowLeft, Wallet, Coins, Share2 } from 'lucide-react';
 
 interface InvestmentListProps {
   data: AppState;
@@ -58,6 +58,46 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
     }
     
     return { paid, percentage: expectedTotal > 0 ? Math.min((paid / expectedTotal) * 100, 100) : 0, expectedTotal };
+  };
+
+  const handleShare = async () => {
+    if (!selectedInvestment) return;
+    const customer = data.customers.find(c => c.id === selectedInvestment.customerId);
+    const relatedPayments = data.payments.filter(p => p.investmentId === selectedInvestment.id);
+    const totalPaid = relatedPayments
+      .filter(p => p.type !== 'lend')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const expected = selectedInvestment.manualReturnAmount 
+      ? selectedInvestment.manualReturnAmount 
+      : selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
+
+    const shareText = `InvestTrack Statement:
+Project: ${selectedInvestment.title}
+Customer: ${customer?.name || 'Unknown'}
+Total Given: Rs ${selectedInvestment.amountInvested.toLocaleString()}
+Total Received: Rs ${totalPaid.toLocaleString()}
+Remaining: Rs ${Math.max(0, expected - totalPaid).toLocaleString()}
+Generated on: ${new Date().toLocaleDateString()}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Investment Statement',
+          text: shareText,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        alert('Statement text copied to clipboard! You can now paste it in WhatsApp or other apps.');
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+    }
   };
 
   const handleSaveInvestment = (e: React.FormEvent) => {
@@ -438,12 +478,20 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
         <div className="space-y-6 animate-fade-in relative pb-8">
           <div className="flex justify-between items-center px-1">
              <button onClick={() => setViewState('list')} className="text-sm text-indigo-600 font-bold flex items-center hover:underline"><ArrowLeftCircle size={18} className="mr-1.5"/> Back to List</button>
-             <button 
-               onClick={() => setViewState('report')} 
-               className="text-sm bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-full flex items-center hover:bg-slate-50 shadow-sm transition-all"
-             >
-               <FileText size={16} className="mr-2 text-indigo-500"/> Report
-             </button>
+             <div className="flex gap-2">
+               <button 
+                 onClick={handleShare}
+                 className="text-sm bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-full flex items-center hover:bg-slate-50 shadow-sm transition-all"
+               >
+                 <Share2 size={16} className="mr-2 text-indigo-500"/> Share
+               </button>
+               <button 
+                 onClick={() => setViewState('report')} 
+                 className="text-sm bg-white border border-slate-200 text-slate-600 font-bold px-4 py-2 rounded-full flex items-center hover:bg-slate-50 shadow-sm transition-all"
+               >
+                 <FileText size={16} className="mr-2 text-indigo-500"/> Report
+               </button>
+             </div>
           </div>
           
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
@@ -811,7 +859,7 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
               </button>
               <button 
                 onClick={confirmDeletePayment}
-                className="flex-1 py-3.5 px-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                className="flex-1 py-3.5 px-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20"
               >
                 Delete
               </button>
