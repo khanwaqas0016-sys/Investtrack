@@ -1,7 +1,8 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
-import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User } from 'lucide-react';
+import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User, Clock, CheckCircle2 } from 'lucide-react';
 
 interface DashboardProps {
   data: AppState;
@@ -51,6 +52,8 @@ const StatCard = ({ title, value, subValue, icon: Icon, theme }: any) => {
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ data }) => {
+  const [contributorTab, setContributorTab] = useState<'paid' | 'unpaid'>('paid');
+
   const totalInvested = data.investments.reduce((sum, i) => sum + i.amountInvested, 0);
   
   const totalCollected = data.payments
@@ -115,6 +118,33 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return Object.values(contributors).sort((a, b) => b.amount - a.amount);
   }, [data.payments, data.investments, data.customers]);
 
+  // Logic for "Unpaid Distributors" (Customers with active investments who haven't paid this month)
+  const unpaidDistributors = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // 1. Get IDs of customers who HAVE paid this month
+    const paidCustomerIds = new Set(
+      data.payments
+        .filter(p => {
+          const pDate = new Date(p.date);
+          return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.type !== 'lend';
+        })
+        .map(p => {
+          const inv = data.investments.find(i => i.id === p.investmentId);
+          return inv?.customerId;
+        })
+        .filter(Boolean)
+    );
+
+    // 2. Filter customers who have at least one active investment AND are NOT in the paid list
+    return data.customers.filter(customer => {
+      const hasActiveInvestment = data.investments.some(inv => inv.customerId === customer.id && inv.status === 'active');
+      return hasActiveInvestment && !paidCustomerIds.has(customer.id);
+    });
+  }, [data.payments, data.investments, data.customers]);
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -130,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         <StatCard 
           title="Total Invested" 
           value={`Rs ${totalInvested.toLocaleString()}`} 
-          subValue={`${data.investments.length} Active`}
+          subValue={`${data.investments.filter(i => i.status === 'active').length} Active`}
           icon={Wallet}
           theme="blue"
         />
@@ -218,55 +248,117 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
           </div>
         </div>
 
-        {/* Current Month Contributors Section */}
-        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex flex-col">
-          <div className="mb-6">
-            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              Contributors <Users size={18} className="text-indigo-500" />
-            </h3>
-            <p className="text-sm text-slate-400 font-medium">Who paid this month</p>
+        {/* Contributors & Unpaid Section */}
+        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex flex-col min-h-[450px]">
+          <div className="flex flex-col space-y-4 mb-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  Distribution <Users size={18} className="text-indigo-500" />
+                </h3>
+                <p className="text-sm text-slate-400 font-medium">Monthly status</p>
+              </div>
+            </div>
+            
+            {/* Tab Toggle */}
+            <div className="flex p-1 bg-slate-100 rounded-2xl w-full">
+              <button 
+                onClick={() => setContributorTab('paid')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'paid' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <CheckCircle2 size={14} />
+                Paid ({currentMonthContributors.length})
+              </button>
+              <button 
+                onClick={() => setContributorTab('unpaid')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'unpaid' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Clock size={14} />
+                Unpaid ({unpaidDistributors.length})
+              </button>
+            </div>
           </div>
           
-          <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[300px] lg:max-h-full scrollbar-hide">
-            {currentMonthContributors.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                <div className="bg-slate-50 p-4 rounded-full mb-3">
-                  <User size={32} className="opacity-20" />
+          <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[400px] lg:max-h-full scrollbar-hide">
+            {contributorTab === 'paid' ? (
+              currentMonthContributors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                  <div className="bg-slate-50 p-4 rounded-full mb-3">
+                    <User size={32} className="opacity-20" />
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">No payments yet</p>
                 </div>
-                <p className="text-xs font-bold uppercase tracking-widest opacity-60">No payments yet</p>
-              </div>
+              ) : (
+                currentMonthContributors.map((contributor, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 transition-all hover:bg-emerald-50/50 group animate-fade-in">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-emerald-200">
+                        {contributor.profileImage ? (
+                          <img src={contributor.profileImage} alt={contributor.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <User size={18} className="text-emerald-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700 leading-none">{contributor.name}</p>
+                        <p className="text-[10px] text-emerald-600 font-bold mt-1 uppercase tracking-tighter">Contributor</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-extrabold text-emerald-600">Rs {contributor.amount.toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              )
             ) : (
-              currentMonthContributors.map((contributor, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/50 border border-slate-100 transition-all hover:bg-slate-50 group">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center overflow-hidden border border-indigo-200">
-                      {contributor.profileImage ? (
-                        <img src={contributor.profileImage} alt={contributor.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <User size={18} className="text-indigo-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-700 leading-none">{contributor.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Current Month</p>
-                    </div>
+              unpaidDistributors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-emerald-600/60">
+                  <div className="bg-emerald-50 p-4 rounded-full mb-3">
+                    <CheckCircle2 size={32} />
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-extrabold text-emerald-600">Rs {contributor.amount.toLocaleString()}</p>
-                  </div>
+                  <p className="text-xs font-bold uppercase tracking-widest">Everyone Paid!</p>
                 </div>
-              ))
+              ) : (
+                unpaidDistributors.map((customer, idx) => {
+                  const activeInv = data.investments.find(i => i.customerId === customer.id && i.status === 'active');
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-orange-50/30 border border-orange-100 transition-all hover:bg-orange-50/50 group animate-fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-orange-200">
+                          {customer.profileImage ? (
+                            <img src={customer.profileImage} alt={customer.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <User size={18} className="text-orange-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-700 leading-none">{customer.name}</p>
+                          <p className="text-[10px] text-orange-500 font-bold mt-1 uppercase tracking-tighter">Pending payment</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                         <div className="px-2 py-1 bg-orange-100 text-orange-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                            {activeInv?.title || 'Account Active'}
+                         </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )
             )}
           </div>
           
-          {currentMonthContributors.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-400">Monthly Total</span>
-              <span className="text-base font-black text-slate-800">
-                Rs {currentMonthContributors.reduce((s, c) => s + c.amount, 0).toLocaleString()}
-              </span>
-            </div>
-          )}
+          <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
+            <span className="text-xs font-bold text-slate-400">
+              {contributorTab === 'paid' ? 'Collected this month' : 'Pending accounts'}
+            </span>
+            <span className={`text-base font-black ${contributorTab === 'paid' ? 'text-emerald-600' : 'text-orange-600'}`}>
+              {contributorTab === 'paid' 
+                ? `Rs ${currentMonthContributors.reduce((s, c) => s + c.amount, 0).toLocaleString()}`
+                : `${unpaidDistributors.length} Waiting`
+              }
+            </span>
+          </div>
         </div>
       </div>
     </div>
