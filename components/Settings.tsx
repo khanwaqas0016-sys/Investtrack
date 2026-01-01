@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppState, SecuritySettings, BackupSettings } from '../types';
 import { Lock, Shield, Smartphone, Clock, Cloud, Download, History, ChevronRight, ToggleLeft, ToggleRight, CheckCircle, Save, Database, RefreshCw, Mail, Phone, User, Upload, LogOut } from 'lucide-react';
@@ -8,9 +9,10 @@ interface SettingsProps {
   onUpdateSecurity: (settings: SecuritySettings) => void;
   onUpdateBackup: (settings: BackupSettings) => void;
   onSignOut: () => void;
+  onImport: (data: AppState) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBackup, onSignOut }) => {
+const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBackup, onSignOut, onImport }) => {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [importStatus, setImportStatus] = useState<string>('');
 
@@ -36,23 +38,34 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
 
   // Backup Handlers
   const handleExportBackup = () => {
-    // Export Local Storage data
-    const backupData = JSON.stringify(data, null, 2);
-    const blob = new Blob([backupData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `InvestTrack_Backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      // Export Local Storage data
+      const backupData = JSON.stringify(data, null, 2);
+      const blob = new Blob([backupData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `InvestTrack_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup after a short delay to ensure browser handles the download
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(url);
+      }, 100);
 
-    onUpdateBackup({
-      ...data.backup,
-      lastBackupDate: new Date().toISOString()
-    });
+      onUpdateBackup({
+        ...data.backup,
+        lastBackupDate: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export data. Please try again.");
+    }
   };
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,12 +78,12 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
           const parsedData = JSON.parse(json);
           
           // Basic validation to check if it has the right shape
-          if (parsedData.customers && parsedData.investments) {
-            localStorage.setItem('investTrackData', JSON.stringify(parsedData));
-            setImportStatus('Backup restored successfully! Reloading...');
+          if (parsedData.customers && parsedData.investments && parsedData.payments) {
+            onImport(parsedData);
+            setImportStatus('Backup restored successfully!');
             setTimeout(() => {
-              window.location.reload();
-            }, 1500);
+              setImportStatus('');
+            }, 3000);
           } else {
             setImportStatus('Error: Invalid backup file format.');
           }
@@ -163,7 +176,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button 
                     onClick={handleExportBackup}
-                    className="py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-slate-200 hover:bg-slate-800 transition-transform active:scale-[0.98]"
+                    className="py-4 bg-[#111827] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] border border-slate-800"
                 >
                     <Download size={20} />
                     Export JSON
@@ -177,7 +190,7 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
             </div>
             
             {importStatus && (
-               <p className={`text-center text-sm font-medium ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
+               <p className={`text-center text-sm font-medium mt-2 ${importStatus.includes('Error') ? 'text-red-500' : 'text-emerald-600'}`}>
                  {importStatus}
                </p>
             )}
