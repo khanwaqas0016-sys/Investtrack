@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
+      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-md overflow-hidden animate-fade-in border border-slate-100">
         <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
           <h1 className="text-3xl font-extrabold tracking-tight mb-2">InvestTrack</h1>
           <p className="opacity-90 flex items-center justify-center gap-2">
