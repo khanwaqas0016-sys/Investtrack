@@ -11,7 +11,7 @@ import Login from './components/Login';
 import { AppState, View, Customer, Investment, Payment } from './types';
 import { saveAppData, loadAppData } from './services/storageService';
 import { auth } from "./firebaseConfig";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 
 const INITIAL_DATA: AppState = {
   customers: [],
@@ -40,8 +40,8 @@ const App: React.FC = () => {
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   useEffect(() => {
-    // Firebase Auth State Listener
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    // Firebase Auth State Listener with explicit type for user
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       if (user && user.email) {
         setCurrentUserEmail(user.email);
         setIsAuthenticated(true);
