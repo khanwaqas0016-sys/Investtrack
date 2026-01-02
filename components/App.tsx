@@ -10,6 +10,8 @@ import AppLock from './AppLock';
 import Login from './Login';
 import { AppState, View, Customer, Investment, Payment } from '../types';
 import { saveAppData, loadAppData } from '../services/storageService';
+import { auth } from "../firebaseConfig";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 const INITIAL_DATA: AppState = {
   customers: [],
@@ -38,20 +40,26 @@ const App: React.FC = () => {
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   useEffect(() => {
-    const isAuth = localStorage.getItem('investTrack_isAuthenticated') === 'true';
-    const email = localStorage.getItem('investTrack_userEmail');
-    
-    if (isAuth && email) {
-      setCurrentUserEmail(email);
-      setIsAuthenticated(true);
-      const localData = loadAppData(email);
-      if (localData) {
-        setData(localData);
+    // Listen for Firebase Auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUserEmail(user.email);
+        setIsAuthenticated(true);
+        const localData = loadAppData(user.email || 'guest');
+        if (localData) {
+          setData(localData);
+        } else {
+          setData(INITIAL_DATA);
+        }
       } else {
+        setIsAuthenticated(false);
+        setCurrentUserEmail(null);
         setData(INITIAL_DATA);
       }
-    }
-    setAuthLoading(false);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -156,22 +164,21 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('investTrack_isAuthenticated');
-    localStorage.removeItem('investTrack_userEmail');
-    setIsAuthenticated(false);
-    setCurrentUserEmail(null);
-    setData(INITIAL_DATA);
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('investTrack_isAuthenticated');
+      localStorage.removeItem('investTrack_userEmail');
+      setIsAuthenticated(false);
+      setCurrentUserEmail(null);
+      setData(INITIAL_DATA);
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
   };
 
   const handleLoginSuccess = () => {
-    const email = localStorage.getItem('investTrack_userEmail');
-    if (email) {
-      setCurrentUserEmail(email);
-      setIsAuthenticated(true);
-      const localData = loadAppData(email);
-      if (localData) setData(localData);
-    }
+    // onAuthStateChanged handles the state updates
   };
 
   const handleImport = (importedData: AppState) => {
@@ -219,7 +226,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-indigo-600 font-bold">Loading InvestTrack...</p>
+          <p className="text-indigo-600 font-bold">Loading InvestTrack Pro...</p>
         </div>
       </div>
     );

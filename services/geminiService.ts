@@ -1,8 +1,13 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { AppState, AIAnalysisResult } from '../types';
 
+/**
+ * Generates financial insights using Gemini AI.
+ * Uses gemini-3-pro-preview for advanced reasoning on portfolio data.
+ */
 export const generateFinancialInsights = async (data: AppState): Promise<AIAnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Always use a named parameter and obtain the key from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const summaryData = {
     totalCustomers: data.customers.length,
@@ -22,24 +27,37 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
     
     Data:
     ${JSON.stringify(summaryData, null, 2)}
-    
-    Provide a structured analysis in JSON format with exactly these keys:
-    - "summary": A brief executive summary (max 50 words).
-    - "riskAssessment": A string identifying 2-3 potential risks.
-    - "opportunities": A string suggesting 2-3 actionable tips.
-    
-    Return raw JSON only. Do not use markdown blocks.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        // Recommended way to get structured output
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: {
+              type: Type.STRING,
+              description: 'A brief executive summary (max 50 words).',
+            },
+            riskAssessment: {
+              type: Type.STRING,
+              description: 'Identifying 2-3 potential risks.',
+            },
+            opportunities: {
+              type: Type.STRING,
+              description: 'Suggesting 2-3 actionable tips.',
+            },
+          },
+          required: ['summary', 'riskAssessment', 'opportunities'],
+        }
       }
     });
 
+    // Property .text is used to extract the output string
     const text = response.text;
     if (!text) throw new Error("No response text received from Gemini.");
 

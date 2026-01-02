@@ -1,5 +1,12 @@
-import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import { Mail, Lock, ArrowRight, AlertCircle, User, Camera, ShieldCheck } from 'lucide-react';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updateProfile
+} from "firebase/auth";
+import { auth } from "../firebaseConfig";
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -9,35 +16,76 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Simulated Authentication
-    setTimeout(() => {
-      // Basic validation
-      if (email.includes('@') && password.length >= 6) {
-        // Successful "Login" - persist to local storage
-        localStorage.setItem('investTrack_isAuthenticated', 'true');
-        localStorage.setItem('investTrack_userEmail', email);
-        onLoginSuccess();
+    try {
+      if (isRegistering) {
+        if (password !== confirmPassword) {
+          setError("Passwords do not match");
+          setLoading(false);
+          return;
+        }
+        
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          if (name) {
+            await updateProfile(userCredential.user, { displayName: name });
+          }
+          // Note: Profile photo storage isn't implemented as per request (only authenticate, don't save user info)
+          onLoginSuccess();
+        } catch (err: any) {
+          if (err.code === 'auth/email-already-in-use') {
+            setError('user already exists, sign in?');
+          } else {
+            setError(err.message);
+          }
+        }
       } else {
-        setError(password.length < 6 ? "Password must be at least 6 characters" : "Invalid email address");
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          onLoginSuccess();
+        } catch (err: any) {
+          setError('password or email incorrect');
+        }
       }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in">
+      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
         <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
           <h1 className="text-3xl font-extrabold tracking-tight mb-2">InvestTrack</h1>
-          <p className="opacity-90">Secure Portfolio Management</p>
+          <p className="opacity-90 flex items-center justify-center gap-2">
+            <ShieldCheck size={18} />
+            Secure Portfolio Management
+          </p>
         </div>
 
         <div className="p-8">
@@ -46,21 +94,58 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </h2>
 
           {error && (
-            <div className="mb-6 bg-red-50 text-red-500 text-sm p-3 rounded-xl border border-red-100 flex items-center justify-center gap-2">
-              <AlertCircle size={16} />
-              {error}
+            <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 animate-shake ${
+              error === 'user already exists, sign in?' 
+              ? 'bg-amber-50 text-amber-700 border-amber-100' 
+              : 'bg-red-50 text-red-500 border-red-100'
+            }`}>
+              <AlertCircle size={20} className="shrink-0" />
+              <p className="text-sm font-bold leading-tight">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleAuth} className="space-y-4">
-            <div className="space-y-2">
+            {isRegistering && (
+              <>
+                <div className="flex justify-center mb-6">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative h-20 w-20 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center cursor-pointer overflow-hidden group hover:border-indigo-300 transition-all"
+                  >
+                    {profilePhoto ? (
+                      <img src={profilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center text-slate-400 group-hover:text-indigo-500">
+                        <Camera size={20} />
+                        <span className="text-[10px] font-black mt-1 uppercase">Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                </div>
+
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 text-slate-400" size={20} />
+                  <input 
+                    type="text" 
+                    placeholder="Full Name" 
+                    required={isRegistering}
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 font-medium"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="space-y-4">
               <div className="relative">
                 <Mail className="absolute left-4 top-3.5 text-slate-400" size={20} />
                 <input 
                   type="email" 
-                  placeholder="gmail.com" 
+                  placeholder="Email Address" 
                   required
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 font-medium"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                 />
@@ -70,31 +155,47 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 <Lock className="absolute left-4 top-3.5 text-slate-400" size={20} />
                 <input 
                   type="password" 
-                  placeholder=".........." 
+                  placeholder="Password" 
                   required
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 font-medium"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>
+
+              {isRegistering && (
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 text-slate-400" size={20} />
+                  <input 
+                    type="password" 
+                    placeholder="Repeat Password" 
+                    required={isRegistering}
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 font-medium"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-4"
             >
-              {loading ? 'Processing...' : (isRegistering ? 'Sign Up' : 'Sign In')}
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (isRegistering ? 'Complete Registration' : 'Secure Sign In')}
               {!loading && <ArrowRight size={18} />}
             </button>
             
-            <div className="text-center">
+            <div className="text-center pt-2">
               <button 
                 type="button"
                 onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-                className="text-sm text-slate-500 font-medium hover:text-indigo-600 transition-colors"
+                className="text-sm text-slate-500 font-bold hover:text-indigo-600 transition-colors uppercase tracking-widest"
               >
-                {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                {isRegistering ? 'Wait, I have an account' : "New here? Create profile"}
               </button>
             </div>
           </form>
