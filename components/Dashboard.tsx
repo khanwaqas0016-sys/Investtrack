@@ -69,8 +69,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return sum + expected;
   }, 0);
 
-  // User specifically requested: Profit = total Investment amount - total Expected Return
-  const totalProjectedProfit = totalInvested - totalExpectedReturn;
+  // User updated requirement: Profit = total Expected Return - total Investment Amount
+  const totalProjectedProfit = totalExpectedReturn - totalInvested;
 
   const chartData = React.useMemo(() => {
     const months: Record<string, number> = {};
