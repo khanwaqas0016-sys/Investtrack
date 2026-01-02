@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Mail, Lock, ArrowRight, AlertCircle, User, Camera, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, User, Camera, ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
+  sendPasswordResetEmail,
   signOut
 } from "firebase/auth";
 import { auth } from "../firebaseConfig";
@@ -15,6 +16,8 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetSentEmail, setResetSentEmail] = useState<string | null>(null);
   const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +40,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSentEmail(email);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -55,19 +72,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           await updateProfile(userCredential.user, { displayName: name });
         }
         
-        // Send verification email
         await sendEmailVerification(userCredential.user);
-        // Force sign out immediately so they don't access the app
         await signOut(auth);
         
         setVerifyingEmail(email);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         
-        // Check if email is verified
         if (!userCredential.user.emailVerified) {
           const userEmail = userCredential.user.email || email;
-          // Optionally resend if needed, but per requirements we just show screen
           await signOut(auth);
           setVerifyingEmail(userEmail);
           setLoading(false);
@@ -88,6 +101,89 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       setLoading(false);
     }
   };
+
+  if (resetSentEmail) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
+            <div className="bg-white/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 size={40} />
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight mb-2">Email Sent</h1>
+          </div>
+          <div className="p-10 text-center">
+            <p className="text-slate-600 font-medium leading-relaxed mb-8">
+              We sent you a password change link to <span className="text-indigo-600 font-bold">{resetSentEmail}</span>
+            </p>
+            <button 
+              onClick={() => {
+                setResetSentEmail(null);
+                setIsForgotPassword(false);
+                setError('');
+              }}
+              className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              Sign in
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
+            <div className="bg-white/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+              <KeyRound size={40} />
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight mb-2">Reset Password</h1>
+          </div>
+          <div className="p-8">
+            {error && (
+              <div className="mb-6 p-4 rounded-xl border flex items-center gap-3 bg-red-50 text-red-500 border-red-100 animate-shake">
+                <AlertCircle size={20} className="shrink-0" />
+                <p className="text-sm font-bold leading-tight">{error}</p>
+              </div>
+            )}
+            <form onSubmit={handleResetPassword} className="space-y-6">
+              <div className="relative">
+                <Mail className="absolute left-4 top-3.5 text-slate-400" size={20} />
+                <input 
+                  type="email" 
+                  placeholder="Email Address" 
+                  required
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 font-medium"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'Get reset link'}
+              </button>
+              <div className="text-center">
+                <button 
+                  type="button"
+                  onClick={() => { setIsForgotPassword(false); setError(''); }}
+                  className="text-sm text-slate-500 font-bold hover:text-indigo-600 transition-colors uppercase tracking-widest"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (verifyingEmail) {
     return (
@@ -207,6 +303,18 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>
+
+              {!isRegistering && (
+                <div className="text-right pr-2">
+                  <button 
+                    type="button"
+                    onClick={() => { setIsForgotPassword(true); setError(''); }}
+                    className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
 
               {isRegistering && (
                 <div className="relative">
