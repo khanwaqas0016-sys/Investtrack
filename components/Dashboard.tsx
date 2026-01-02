@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
-import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User, Clock, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User, Clock, CheckCircle2, Info } from 'lucide-react';
 
 interface DashboardProps {
   data: AppState;
 }
 
-const StatCard = ({ title, value, subValue, icon: Icon, theme }: any) => {
+const StatCard = ({ title, value, subValue, icon: Icon, theme, percentage }: any) => {
   const themes = {
     blue: { 
       bg: 'bg-blue-50', text: 'text-blue-600', sub: 'text-blue-600/80', 
@@ -28,24 +28,31 @@ const StatCard = ({ title, value, subValue, icon: Icon, theme }: any) => {
 
   return (
     <div className={`
-      bg-white p-6 rounded-[2rem] 
-      shadow-[0_2px_20px_-4px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]
+      bg-white p-5 md:p-6 rounded-[2rem] 
+      shadow-[0_2px_20px_-4px_rgba(0,0,0,0.04)] active:scale-[0.98]
       border border-slate-100 ${t.hoverBorder}
-      transition-all duration-300 hover:-translate-y-1 group cursor-default
+      transition-all duration-300 group cursor-default
     `}>
       <div className="flex justify-between items-start mb-4">
-        <div className={`p-3.5 rounded-2xl ${t.iconBg} transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
-          <Icon className={t.text} size={24} strokeWidth={2.5} />
+        <div className={`p-3 rounded-2xl ${t.iconBg} transition-transform duration-300 group-hover:scale-110`}>
+          <Icon className={t.text} size={22} strokeWidth={2.5} />
         </div>
-        {subValue && (
-          <span className={`text-xs font-bold px-3 py-1 rounded-full ${t.bg} ${t.sub} flex items-center gap-1`}>
-            {subValue}
-          </span>
+        {percentage !== undefined && (
+          <div className={`flex flex-col items-end`}>
+            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${percentage >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'} flex items-center gap-1 border border-current opacity-80`}>
+              {percentage >= 0 ? '+' : ''}{percentage.toFixed(1)}%
+            </span>
+          </div>
         )}
       </div>
       <div>
-        <p className="text-sm font-medium text-slate-400 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
-        <h3 className="text-3xl font-extrabold text-slate-800 tracking-tight group-hover:text-slate-900 transition-colors">{value}</h3>
+        <p className="text-slate-400 mb-1 tracking-widest uppercase text-[9px] font-black">{title}</p>
+        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight transition-colors truncate">{value}</h3>
+        {subValue && (
+           <p className={`text-[10px] font-bold mt-1 ${t.sub} flex items-center gap-1 opacity-80 uppercase tracking-tighter`}>
+             <Info size={10} /> {subValue}
+           </p>
+        )}
       </div>
     </div>
   );
@@ -60,8 +67,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     .filter(p => p.type !== 'lend')
     .reduce((sum, p) => sum + p.amount, 0);
     
-  const currentNetPosition = totalCollected - totalInvested;
-  
   const totalExpectedReturn = data.investments.reduce((sum, i) => {
     const expected = i.manualReturnAmount
       ? i.manualReturnAmount
@@ -69,8 +74,14 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return sum + expected;
   }, 0);
 
-  // User updated requirement: Profit = total Expected Return - total Investment Amount
+  // Requirement: Profit = total Expected Return - total Investment Amount
   const totalProjectedProfit = totalExpectedReturn - totalInvested;
+  
+  // Mobile-friendly ROI (Return on Investment) calculation
+  const roiPercentage = totalInvested > 0 ? (totalProjectedProfit / totalInvested) * 100 : 0;
+  
+  // Realized collection percentage (how much of the expected return we've actually got)
+  const collectionRate = totalExpectedReturn > 0 ? (totalCollected / totalExpectedReturn) * 100 : 0;
 
   const chartData = React.useMemo(() => {
     const months: Record<string, number> = {};
@@ -92,7 +103,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return Object.entries(months).map(([name, value]) => ({ name, value }));
   }, [data.payments]);
 
-  // Logic for "Monthly Contributors" (Customers who paid this month)
   const currentMonthContributors = React.useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -119,13 +129,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return Object.values(contributors).sort((a, b) => b.amount - a.amount);
   }, [data.payments, data.investments, data.customers]);
 
-  // Logic for "Unpaid Distributors" (Customers with active investments who haven't paid this month)
   const unpaidDistributors = React.useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // 1. Get IDs of customers who HAVE paid this month
     const paidCustomerIds = new Set(
       data.payments
         .filter(p => {
@@ -139,7 +147,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         .filter(Boolean)
     );
 
-    // 2. Filter customers who have at least one active investment AND are NOT in the paid list
     return data.customers.filter(customer => {
       const hasActiveInvestment = data.investments.some(inv => inv.customerId === customer.id && inv.status === 'active');
       return hasActiveInvestment && !paidCustomerIds.has(customer.id);
@@ -147,55 +154,57 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   }, [data.payments, data.investments, data.customers]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Overview <Sparkles className="text-amber-400" size={24} fill="currentColor" />
-          </h2>
-          <p className="text-slate-500 mt-1 font-medium">Financial summary for {new Date().toLocaleDateString('default', { month: 'long', year: 'numeric' })}</p>
+    <div className="space-y-6 md:space-y-8 animate-fade-in pb-10">
+      <div className="px-1">
+        <div className="flex items-center gap-2">
+           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Financial Hub</h2>
+           <Sparkles className="text-amber-400 animate-pulse" size={20} fill="currentColor" />
         </div>
+        <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest mt-1">
+           Analytics • {new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' })}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <StatCard 
           title="Total Invested" 
           value={`Rs ${totalInvested.toLocaleString()}`} 
-          subValue={`${data.investments.filter(i => i.status === 'active').length} Active`}
+          subValue={`${data.investments.filter(i => i.status === 'active').length} Active Accounts`}
           icon={Wallet}
           theme="blue"
         />
         <StatCard 
+          title="Projected Profit" 
+          value={`Rs ${totalProjectedProfit.toLocaleString()}`} 
+          subValue="Expected Net Gain"
+          icon={TrendingUp}
+          theme="violet"
+          percentage={roiPercentage}
+        />
+        <StatCard 
           title="Total Received" 
           value={`Rs ${totalCollected.toLocaleString()}`} 
-          subValue={currentNetPosition >= 0 ? `+${((currentNetPosition/totalInvested || 0) * 100).toFixed(1)}%` : undefined}
+          subValue={`${collectionRate.toFixed(1)}% of targets met`}
           icon={Banknote}
           theme="emerald"
         />
-        <StatCard 
-          title="Projected Profit" 
-          value={`Rs ${totalProjectedProfit.toLocaleString()}`} 
-          subValue="Est. Gain"
-          icon={TrendingUp}
-          theme="violet"
-        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Income Analysis Chart */}
-        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] transition-shadow duration-500">
+        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h3 className="text-xl font-bold text-slate-800">Income Analysis</h3>
-              <p className="text-sm text-slate-400 font-medium">Monthly collections over the last 6 months</p>
+              <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tight">Income Trends</h3>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Past 6 Months Overview</p>
             </div>
-            <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold flex items-center border border-emerald-100 shadow-sm">
-               <ArrowUpRight size={14} className="mr-1" />
-               Income Stream
+            <div className="hidden md:flex bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest items-center border border-emerald-100 shadow-sm">
+               <ArrowUpRight size={14} className="mr-1.5" />
+               Live Flow
             </div>
           </div>
           
-          <div className="h-72 w-full">
+          <div className="h-64 md:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -209,13 +218,13 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
+                  tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} 
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} 
+                  tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} 
                   tickFormatter={(value) => `Rs ${value}`}
                 />
                 <Tooltip 
@@ -223,24 +232,21 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
-                        <div className="bg-slate-900 text-white text-xs rounded-xl py-2 px-3 shadow-xl transform transition-all">
-                          <p className="font-bold mb-1 opacity-70">{payload[0].payload.name}</p>
-                          <p className="text-base font-bold text-emerald-400">Rs {Number(payload[0].value).toLocaleString()}</p>
+                        <div className="bg-slate-900 text-white text-[10px] rounded-xl py-2 px-3 shadow-xl transform transition-all border border-slate-700">
+                          <p className="font-black mb-1 opacity-60 uppercase tracking-widest">{payload[0].payload.name}</p>
+                          <p className="text-base font-black text-emerald-400 tracking-tight">Rs {Number(payload[0].value).toLocaleString()}</p>
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={40}>
+                <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={32}>
                   {chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={index === chartData.length - 1 ? 'url(#colorUv)' : '#e2e8f0'} 
-                      className="transition-all duration-500 hover:opacity-100"
-                      style={{
-                          filter: index === chartData.length - 1 ? 'drop-shadow(0px 4px 10px rgba(16, 185, 129, 0.2))' : 'none'
-                      }}
+                      className="transition-all duration-500"
                     />
                   ))}
                 </Bar>
@@ -249,51 +255,48 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
           </div>
         </div>
 
-        {/* Contributors & Unpaid Section */}
-        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex flex-col min-h-[450px]">
-          <div className="flex flex-col space-y-4 mb-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  Distribution <Users size={18} className="text-indigo-500" />
-                </h3>
-                <p className="text-sm text-slate-400 font-medium">Monthly status</p>
-              </div>
+        {/* Distribution Section */}
+        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col min-h-[450px]">
+          <div className="flex flex-col space-y-5 mb-6">
+            <div className="px-1">
+              <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                Monthly Flow <Users size={18} className="text-indigo-500" />
+              </h3>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Collection Tracker</p>
             </div>
             
-            {/* Tab Toggle */}
             <div className="flex p-1 bg-slate-100 rounded-2xl w-full">
               <button 
                 onClick={() => setContributorTab('paid')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'paid' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'paid' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 <CheckCircle2 size={14} />
                 Paid ({currentMonthContributors.length})
               </button>
               <button 
                 onClick={() => setContributorTab('unpaid')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'unpaid' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${contributorTab === 'unpaid' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 <Clock size={14} />
-                Unpaid ({unpaidDistributors.length})
+                Pending ({unpaidDistributors.length})
               </button>
             </div>
           </div>
           
-          <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[400px] lg:max-h-full scrollbar-hide">
+          <div className="flex-1 space-y-3 overflow-y-auto pr-2 max-h-[400px] lg:max-h-full scrollbar-hide">
             {contributorTab === 'paid' ? (
               currentMonthContributors.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                  <div className="bg-slate-50 p-4 rounded-full mb-3">
-                    <User size={32} className="opacity-20" />
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <div className="bg-slate-50 p-4 rounded-full mb-3 grayscale opacity-30">
+                    <User size={32} />
                   </div>
-                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">No payments yet</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40">No entries recorded</p>
                 </div>
               ) : (
                 currentMonthContributors.map((contributor, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 transition-all hover:bg-emerald-50/50 group animate-fade-in">
+                  <div key={idx} className="flex items-center justify-between p-3.5 rounded-[1.5rem] bg-emerald-50/20 border border-emerald-100/50 hover:bg-emerald-50/40 transition-all group animate-fade-in">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-emerald-200">
+                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-emerald-100 shadow-sm">
                         {contributor.profileImage ? (
                           <img src={contributor.profileImage} alt={contributor.name} className="h-full w-full object-cover" />
                         ) : (
@@ -301,31 +304,31 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
                         )}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-700 leading-none">{contributor.name}</p>
-                        <p className="text-[10px] text-emerald-600 font-bold mt-1 uppercase tracking-tighter">Contributor</p>
+                        <p className="text-sm font-black text-slate-800 tracking-tight leading-none">{contributor.name}</p>
+                        <p className="text-[9px] text-emerald-600 font-black mt-1 uppercase tracking-widest opacity-80">Settled</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-extrabold text-emerald-600">Rs {contributor.amount.toLocaleString()}</p>
+                      <p className="text-sm font-black text-emerald-600 tracking-tight">Rs {contributor.amount.toLocaleString()}</p>
                     </div>
                   </div>
                 ))
               )
             ) : (
               unpaidDistributors.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-emerald-600/60">
-                  <div className="bg-emerald-50 p-4 rounded-full mb-3">
+                <div className="flex flex-col items-center justify-center py-16 text-emerald-600/40">
+                  <div className="bg-emerald-50 p-4 rounded-full mb-3 shadow-inner">
                     <CheckCircle2 size={32} />
                   </div>
-                  <p className="text-xs font-bold uppercase tracking-widest">Everyone Paid!</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Fully Cleared</p>
                 </div>
               ) : (
                 unpaidDistributors.map((customer, idx) => {
                   const activeInv = data.investments.find(i => i.customerId === customer.id && i.status === 'active');
                   return (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-orange-50/30 border border-orange-100 transition-all hover:bg-orange-50/50 group animate-fade-in">
+                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-[1.5rem] bg-orange-50/20 border border-orange-100/50 hover:bg-orange-50/40 transition-all group animate-fade-in">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-orange-200">
+                        <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-orange-100 shadow-sm">
                           {customer.profileImage ? (
                             <img src={customer.profileImage} alt={customer.name} className="h-full w-full object-cover" />
                           ) : (
@@ -333,12 +336,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-700 leading-none">{customer.name}</p>
-                          <p className="text-[10px] text-orange-500 font-bold mt-1 uppercase tracking-tighter">Pending payment</p>
+                          <p className="text-sm font-black text-slate-800 tracking-tight leading-none">{customer.name}</p>
+                          <p className="text-[9px] text-orange-500 font-black mt-1 uppercase tracking-widest opacity-80">Awaiting Action</p>
                         </div>
                       </div>
                       <div className="text-right">
-                         <div className="px-2 py-1 bg-orange-100 text-orange-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                         <div className="px-2 py-1 bg-orange-100/50 text-orange-600 rounded-lg text-[8px] font-black uppercase tracking-widest border border-orange-200/50">
                             {activeInv?.title || 'Account Active'}
                          </div>
                       </div>
@@ -349,14 +352,14 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
             )}
           </div>
           
-          <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-400">
-              {contributorTab === 'paid' ? 'Collected this month' : 'Pending accounts'}
+          <div className="mt-6 pt-5 border-t border-slate-50 flex justify-between items-center">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {contributorTab === 'paid' ? 'Total Volume' : 'Pending Count'}
             </span>
-            <span className={`text-base font-black ${contributorTab === 'paid' ? 'text-emerald-600' : 'text-orange-600'}`}>
+            <span className={`text-lg font-black tracking-tight ${contributorTab === 'paid' ? 'text-emerald-600' : 'text-orange-600'}`}>
               {contributorTab === 'paid' 
                 ? `Rs ${currentMonthContributors.reduce((s, c) => s + c.amount, 0).toLocaleString()}`
-                : `${unpaidDistributors.length} Waiting`
+                : `${unpaidDistributors.length} Accounts`
               }
             </span>
           </div>
