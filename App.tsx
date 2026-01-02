@@ -33,37 +33,35 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [data, setData] = useState<AppState>(INITIAL_DATA);
   const [isLocked, setIsLocked] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
+  // 1. Automatic Restore Logic
   useEffect(() => {
-    // Firebase Auth State Listener with explicit type for user and verification check
     const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
-      if (user && user.email) {
-        // Enforce verification: if not verified, we don't authenticate in-app
-        if (user.emailVerified) {
-          setCurrentUserEmail(user.email);
-          setIsAuthenticated(true);
-          const localData = loadAppData(user.email);
-          if (localData) {
-            setData(localData);
-          } else {
-            setData(INITIAL_DATA);
-          }
+      if (user && user.email && user.emailVerified) {
+        setCurrentUserEmail(user.email);
+        setIsAuthenticated(true);
+        
+        // Silent automatic restoration on login
+        const restoredData = loadAppData(user.email);
+        if (restoredData) {
+          setData(restoredData);
         } else {
-          // Explicitly sign out unverified users to be safe
-          // Note: Login.tsx handles the specific logic to show the verification screen
-          // Here we just ensure app state is locked down
-          setIsAuthenticated(false);
-          setCurrentUserEmail(null);
           setData(INITIAL_DATA);
         }
+        setHasLoadedFromStorage(true);
       } else {
         setIsAuthenticated(false);
         setCurrentUserEmail(null);
+        setHasLoadedFromStorage(false);
         setData(INITIAL_DATA);
+        if (user && !user.emailVerified) {
+          await signOut(auth);
+        }
       }
       setAuthLoading(false);
     });
@@ -71,17 +69,20 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // 2. Automatic Save Logic
   useEffect(() => {
-    if (isAuthenticated && data.security.enabled) {
+    // Only save if we have an authenticated user and the initial load is complete
+    // to avoid overwriting existing data with INITIAL_DATA on startup
+    if (isAuthenticated && currentUserEmail && hasLoadedFromStorage) {
+      saveAppData(currentUserEmail, data);
+    }
+  }, [data, isAuthenticated, currentUserEmail, hasLoadedFromStorage]);
+
+  useEffect(() => {
+    if (isAuthenticated && data.security.enabled && !isLocked) {
       setIsLocked(true);
     }
   }, [isAuthenticated, data.security.enabled]);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUserEmail) {
-      saveAppData(currentUserEmail, data);
-    }
-  }, [data, isAuthenticated, currentUserEmail]);
 
   const checkForInactivity = useCallback(() => {
     if (isAuthenticated && data.security.enabled && data.security.autoLockMinutes > 0 && !isLocked) {
@@ -187,6 +188,10 @@ const App: React.FC = () => {
 
   const handleImport = (importedData: AppState) => {
     setData(importedData);
+    // Explicitly trigger a save on manual import
+    if (currentUserEmail) {
+      saveAppData(currentUserEmail, importedData);
+    }
   };
 
   const renderView = () => {
