@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Mail, Lock, ArrowRight, AlertCircle, User, Camera, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, User, Camera, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendEmailVerification,
+  signOut
 } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 
@@ -13,6 +15,7 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,37 +50,81 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           return;
         }
         
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          if (name) {
-            await updateProfile(userCredential.user, { displayName: name });
-          }
-          onLoginSuccess();
-        } catch (err: any) {
-          if (err.code === 'auth/email-already-in-use') {
-            setError('user already exists, sign in?');
-          } else {
-            setError(err.message || 'Registration failed');
-          }
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (name) {
+          await updateProfile(userCredential.user, { displayName: name });
         }
+        
+        // Send verification email
+        await sendEmailVerification(userCredential.user);
+        // Force sign out immediately so they don't access the app
+        await signOut(auth);
+        
+        setVerifyingEmail(email);
       } else {
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-          onLoginSuccess();
-        } catch (err: any) {
-          setError('password or email incorrect');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // Check if email is verified
+        if (!userCredential.user.emailVerified) {
+          const userEmail = userCredential.user.email || email;
+          // Optionally resend if needed, but per requirements we just show screen
+          await signOut(auth);
+          setVerifyingEmail(userEmail);
+          setLoading(false);
+          return;
         }
+        
+        onLoginSuccess();
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication error');
+      if (isRegistering && err.code === 'auth/email-already-in-use') {
+        setError('user already exists, sign in?');
+      } else if (!isRegistering) {
+        setError('password or email incorrect');
+      } else {
+        setError(err.message || 'Authentication error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  if (verifyingEmail) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
+            <div className="bg-white/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+              <Mail size={40} />
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight mb-2">Check Your Inbox</h1>
+          </div>
+          <div className="p-10 text-center">
+            <p className="text-slate-600 font-medium leading-relaxed mb-8">
+              We have sent you a verification email to <span className="text-indigo-600 font-bold">{verifyingEmail}</span>. 
+              Verify it and login.
+            </p>
+            <button 
+              onClick={() => {
+                setVerifyingEmail(null);
+                setIsRegistering(false);
+                setEmail('');
+                setPassword('');
+              }}
+              className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              Back to Login
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-md overflow-hidden animate-fade-in border border-slate-100">
+      <div className="bg-white rounded-[2.5rem] shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-100">
         <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white text-center">
           <h1 className="text-3xl font-extrabold tracking-tight mb-2">InvestTrack</h1>
           <p className="opacity-90 flex items-center justify-center gap-2">
@@ -183,7 +230,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (isRegistering ? 'Complete Registration' : 'Secure Sign In')}
+              ) : (isRegistering ? 'Register & Verify' : 'Secure Sign In')}
               {!loading && <ArrowRight size={18} />}
             </button>
             

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -40,15 +39,25 @@ const App: React.FC = () => {
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   useEffect(() => {
-    // Firebase Auth State Listener with explicit type for user
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+    // Firebase Auth State Listener with explicit type for user and verification check
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       if (user && user.email) {
-        setCurrentUserEmail(user.email);
-        setIsAuthenticated(true);
-        const localData = loadAppData(user.email);
-        if (localData) {
-          setData(localData);
+        // Enforce verification: if not verified, we don't authenticate in-app
+        if (user.emailVerified) {
+          setCurrentUserEmail(user.email);
+          setIsAuthenticated(true);
+          const localData = loadAppData(user.email);
+          if (localData) {
+            setData(localData);
+          } else {
+            setData(INITIAL_DATA);
+          }
         } else {
+          // Explicitly sign out unverified users to be safe
+          // Note: Login.tsx handles the specific logic to show the verification screen
+          // Here we just ensure app state is locked down
+          setIsAuthenticated(false);
+          setCurrentUserEmail(null);
           setData(INITIAL_DATA);
         }
       } else {
