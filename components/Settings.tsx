@@ -144,7 +144,51 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
         </button>
       </div>
 
-      {/* Backup Section - Moved to top per request */}
+      {/* Support Section - Moved to top as per screenshot */}
+      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-blue-50 p-2.5 rounded-xl">
+             <User className="text-blue-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Contact Support</h3>
+            <p className="text-xs text-slate-500 font-medium">Developer Information</p>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700">
+              <User size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Developed By</p>
+              <p className="font-bold text-slate-800">Waqas Ahmad</p>
+            </div>
+          </div>
+          
+          <a href="mailto:khanwaqas0016@gmail.com" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-indigo-600">
+              <Mail size={20} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Email</p>
+              <p className="font-bold text-slate-800 truncate">khanwaqas0016@gmail.com</p>
+            </div>
+          </a>
+
+          <a href="tel:+971582685224" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
+            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-green-600">
+              <Phone size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mobile / WhatsApp</p>
+              <p className="font-bold text-slate-800">+971 58 268 5224</p>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      {/* Backup Section */}
       <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="bg-emerald-50 p-2.5 rounded-xl">
@@ -304,50 +348,6 @@ const Settings: React.FC<SettingsProps> = ({ data, onUpdateSecurity, onUpdateBac
                      </button>
                 </div>
             )}
-        </div>
-      </section>
-
-      {/* Support Section - Moved to bottom */}
-      <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="bg-blue-50 p-2.5 rounded-xl">
-             <User className="text-blue-600" size={24} />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Contact Support</h3>
-            <p className="text-xs text-slate-500 font-medium">Developer Information</p>
-          </div>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700">
-              <User size={20} />
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Developed By</p>
-              <p className="font-bold text-slate-800">Waqas Ahmad</p>
-            </div>
-          </div>
-          
-          <a href="mailto:khanwaqas0016@gmail.com" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-indigo-600">
-              <Mail size={20} />
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Email</p>
-              <p className="font-bold text-slate-800 truncate">khanwaqas0016@gmail.com</p>
-            </div>
-          </a>
-
-          <a href="tel:+971582685224" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors group">
-            <div className="bg-white p-3 rounded-full shadow-sm text-slate-700 group-hover:text-green-600">
-              <Phone size={20} />
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mobile / WhatsApp</p>
-              <p className="font-bold text-slate-800">+971 58 268 5224</p>
-            </div>
-          </a>
         </div>
       </section>
 

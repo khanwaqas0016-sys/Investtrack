@@ -69,7 +69,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return sum + expected;
   }, 0);
 
-  const totalProjectedProfit = totalExpectedReturn - totalInvested;
+  // User specifically requested: Profit = total Investment amount - total Expected Return
+  const totalProjectedProfit = totalInvested - totalExpectedReturn;
 
   const chartData = React.useMemo(() => {
     const months: Record<string, number> = {};
@@ -174,7 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         <StatCard 
           title="Projected Profit" 
           value={`Rs ${totalProjectedProfit.toLocaleString()}`} 
-          subValue="Est. Return"
+          subValue="Est. Gain"
           icon={TrendingUp}
           theme="violet"
         />
