@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { AppState } from '../types';
 import { TrendingUp, Wallet, Banknote, ArrowUpRight, Sparkles, Users, User, Clock, CheckCircle2, Info } from 'lucide-react';
 
+// Added missing interface to fix the error in Dashboard component definition
 interface DashboardProps {
   data: AppState;
 }
@@ -21,6 +22,10 @@ const StatCard = ({ title, value, subValue, icon: Icon, theme, percentage }: any
     violet: { 
       bg: 'bg-violet-50', text: 'text-violet-600', sub: 'text-violet-600/80', 
       iconBg: 'bg-violet-100', hoverBorder: 'hover:border-violet-200' 
+    },
+    amber: { 
+      bg: 'bg-amber-50', text: 'text-amber-600', sub: 'text-amber-600/80', 
+      iconBg: 'bg-amber-100', hoverBorder: 'hover:border-amber-200' 
     },
   };
   // @ts-ignore
@@ -76,6 +81,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
 
   // Requirement: Profit = total Expected Return - total Investment Amount
   const totalProjectedProfit = totalExpectedReturn - totalInvested;
+  
+  // New Requirement: Total Amounts Need to Collect = Sum of Remaining of all customers
+  const totalRemainingToCollect = Math.max(0, totalExpectedReturn - totalCollected);
   
   // Mobile-friendly ROI (Return on Investment) calculation
   const roiPercentage = totalInvested > 0 ? (totalProjectedProfit / totalInvested) * 100 : 0;
@@ -163,6 +171,17 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest mt-1">
            Analytics • {new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' })}
         </p>
+      </div>
+
+      {/* Hero Stat: Total Need to Collect */}
+      <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+        <StatCard 
+          title="Total Need to Collect" 
+          value={`Rs ${totalRemainingToCollect.toLocaleString()}`} 
+          subValue="Outstanding Balance from All Customers"
+          icon={Clock}
+          theme="amber"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
