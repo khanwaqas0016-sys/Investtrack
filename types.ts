@@ -11,6 +11,7 @@ export interface Investment {
   id: string;
   customerId: string;
   title: string; // e.g., "Real Estate Project A"
+  type?: 'investment' | 'loan'; // New field for classification
   amountInvested: number;
   expectedReturnRate: number; // percentage (Automatic calculation)
   manualReturnAmount?: number; // Optional override: Fixed amount instead of percentage

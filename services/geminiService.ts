@@ -9,12 +9,16 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
   // Always use a named parameter and obtain the key from process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // Exclude personal loans from AI analysis to focus on investment profit/risk
+  const investmentsOnly = data.investments.filter(i => i.type !== 'loan');
+  const investmentIds = new Set(investmentsOnly.map(i => i.id));
+
   const summaryData = {
     totalCustomers: data.customers.length,
-    activeInvestments: data.investments.filter(i => i.status === 'active').length,
-    totalInvested: data.investments.reduce((sum, inv) => sum + inv.amountInvested, 0),
-    totalCollected: data.payments.filter(p => p.type !== 'lend').reduce((sum, pay) => sum + pay.amount, 0),
-    investments: data.investments.map(inv => ({
+    activeInvestments: investmentsOnly.filter(i => i.status === 'active').length,
+    totalInvested: investmentsOnly.reduce((sum, inv) => sum + inv.amountInvested, 0),
+    totalCollected: data.payments.filter(p => p.type !== 'lend' && investmentIds.has(p.investmentId)).reduce((sum, pay) => sum + pay.amount, 0),
+    investments: investmentsOnly.map(inv => ({
       title: inv.title,
       amount: inv.amountInvested,
       totalPaid: data.payments.filter(p => p.investmentId === inv.id && p.type !== 'lend').reduce((sum, p) => sum + p.amount, 0)
@@ -23,7 +27,7 @@ export const generateFinancialInsights = async (data: AppState): Promise<AIAnaly
 
   const prompt = `
     You are a senior financial investment analyst. All monetary values are in Pakistani Rupees (PKR). 
-    Analyze the following investment portfolio JSON data.
+    Analyze the following investment portfolio JSON data. Focus on growth, ROI, and risk management.
     
     Data:
     ${JSON.stringify(summaryData, null, 2)}

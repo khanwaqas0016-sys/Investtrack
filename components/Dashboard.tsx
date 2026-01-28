@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
@@ -66,13 +65,18 @@ const StatCard = ({ title, value, subValue, icon: Icon, theme, percentage }: any
 const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   const [contributorTab, setContributorTab] = useState<'paid' | 'unpaid'>('paid');
 
-  const totalInvested = data.investments.reduce((sum, i) => sum + i.amountInvested, 0);
+  // Filter out personal loans for investment-specific dashboard metrics
+  // Backward compatibility: undefined type is treated as investment
+  const investmentsOnly = data.investments.filter(i => i.type !== 'loan');
+  const investmentIds = new Set(investmentsOnly.map(i => i.id));
+
+  const totalInvested = investmentsOnly.reduce((sum, i) => sum + i.amountInvested, 0);
   
   const totalCollected = data.payments
-    .filter(p => p.type !== 'lend')
+    .filter(p => p.type !== 'lend' && investmentIds.has(p.investmentId))
     .reduce((sum, p) => sum + p.amount, 0);
     
-  const totalExpectedReturn = data.investments.reduce((sum, i) => {
+  const totalExpectedReturn = investmentsOnly.reduce((sum, i) => {
     const expected = i.manualReturnAmount
       ? i.manualReturnAmount
       : i.amountInvested * (1 + i.expectedReturnRate / 100);
@@ -82,7 +86,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   // Requirement: Profit = total Expected Return - total Investment Amount
   const totalProjectedProfit = totalExpectedReturn - totalInvested;
   
-  // New Requirement: Total Amounts Need to Collect = Sum of Remaining of all customers
+  // Requirement: Total Amounts Need to Collect = Sum of Remaining of all investments (excluding loans as per investment-scope rule)
   const totalRemainingToCollect = Math.max(0, totalExpectedReturn - totalCollected);
   
   // Mobile-friendly ROI (Return on Investment) calculation
@@ -103,6 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     data.payments.forEach(p => {
       const d = new Date(p.date);
       const key = d.toLocaleString('default', { month: 'short' });
+      // Chart continues to show all income flow (including loans for financial overview)
       if (months[key] !== undefined && p.type !== 'lend') {
         months[key] += p.amount;
       }
@@ -178,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         <StatCard 
           title="Total Need to Collect" 
           value={`Rs ${totalRemainingToCollect.toLocaleString()}`} 
-          subValue="Outstanding Balance from All Customers"
+          subValue="Outstanding Balance from All Investments"
           icon={Clock}
           theme="amber"
         />
@@ -188,7 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         <StatCard 
           title="Total Invested" 
           value={`Rs ${totalInvested.toLocaleString()}`} 
-          subValue={`${data.investments.filter(i => i.status === 'active').length} Active Accounts`}
+          subValue={`${investmentsOnly.filter(i => i.status === 'active').length} Active Accounts`}
           icon={Wallet}
           theme="blue"
         />

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppState, Investment, Payment, Customer, generateUUID } from '../types';
-import { Plus, Calendar, Upload, CheckCircle, Clock, ArrowRightCircle, ArrowLeftCircle, TrendingUp, Trash2, Pencil, X, Save, AlertTriangle, FileText, Printer, Mail, Phone, ArrowLeft, Wallet, Coins, Share2 } from 'lucide-react';
+import { Plus, Calendar, Upload, CheckCircle, Clock, ArrowRightCircle, ArrowLeftCircle, TrendingUp, Trash2, Pencil, X, Save, AlertTriangle, FileText, Printer, Mail, Phone, ArrowLeft, Wallet, Coins, Share2, Briefcase, HandCoins } from 'lucide-react';
 
 interface InvestmentListProps {
   data: AppState;
@@ -26,7 +26,7 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   
   // New/Edit Investment Form State
-  const [invForm, setInvForm] = useState<Partial<Investment>>({});
+  const [invForm, setInvForm] = useState<Partial<Investment>>({ type: 'investment' });
   
   // New/Edit Payment Form State
   const [payForm, setPayForm] = useState<Partial<Payment>>({ type: 'installment' });
@@ -73,6 +73,7 @@ const InvestmentList: React.FC<InvestmentListProps> = ({
       : selectedInvestment.amountInvested * (1 + selectedInvestment.expectedReturnRate / 100);
 
     const shareText = `InvestTrack Statement:
+Type: ${selectedInvestment.type === 'loan' ? 'Personal Loan' : 'Investment'}
 Project: ${selectedInvestment.title}
 Customer: ${customer?.name || 'Unknown'}
 Total Given: Rs ${selectedInvestment.amountInvested.toLocaleString()}
@@ -106,6 +107,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
       const investmentData: Investment = {
         id: viewState === 'edit_inv' && selectedInvestment ? selectedInvestment.id : generateUUID(),
         title: invForm.title,
+        type: invForm.type as 'investment' | 'loan' || 'investment',
         customerId: invForm.customerId,
         amountInvested: Number(invForm.amountInvested),
         expectedReturnRate: Number(invForm.expectedReturnRate || 0),
@@ -124,7 +126,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
         onAddInvestment(investmentData);
         setViewState('list');
       }
-      setInvForm({});
+      setInvForm({ type: 'investment' });
     }
   };
 
@@ -239,6 +241,36 @@ Generated on: ${new Date().toLocaleDateString()}`;
           <h2 className="text-xl font-bold mb-6 text-slate-800">{viewState === 'edit_inv' ? 'Edit Account' : 'New Account'}</h2>
           <form onSubmit={handleSaveInvestment} className="space-y-5">
             <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">Category</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setInvForm({...invForm, type: 'investment'})}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all font-bold text-sm ${
+                    (invForm.type || 'investment') === 'investment' 
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                      : 'border-slate-100 bg-slate-50 text-slate-400'
+                  }`}
+                >
+                  <Briefcase size={18} />
+                  Investment
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setInvForm({...invForm, type: 'loan'})}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all font-bold text-sm ${
+                    invForm.type === 'loan' 
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                      : 'border-slate-100 bg-slate-50 text-slate-400'
+                  }`}
+                >
+                  <HandCoins size={18} />
+                  Personal Loan
+                </button>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-semibold text-slate-600 mb-2">Customer</label>
               <select 
                 required
@@ -254,7 +286,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-2">Title</label>
               <input 
-                required type="text" placeholder="e.g. Personal Loan"
+                required type="text" placeholder={invForm.type === 'loan' ? "e.g. Personal Cash Loan" : "e.g. Real Estate Project"}
                 className="w-full p-4 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
                 value={invForm.title || ''}
                 onChange={e => setInvForm({...invForm, title: e.target.value})}
@@ -318,7 +350,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
               <label className="block text-sm font-semibold text-slate-600 mb-2">Notes (Optional)</label>
               <textarea 
                 className="w-full p-4 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all outline-none resize-none h-32"
-                placeholder="Add any additional details about this investment..."
+                placeholder="Add any additional details about this record..."
                 value={invForm.notes || ''}
                 onChange={e => setInvForm({...invForm, notes: e.target.value})}
               />
@@ -340,7 +372,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
             )}
             <div className="flex space-x-3 pt-4">
               <button type="button" onClick={() => setViewState(viewState === 'edit_inv' ? 'details' : 'list')} className="flex-1 py-4 bg-slate-100 rounded-xl font-medium text-slate-600">Cancel</button>
-              <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">{viewState === 'edit_inv' ? 'Save Changes' : 'Create Account'}</button>
+              <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">{viewState === 'edit_inv' ? 'Save Changes' : 'Create Record'}</button>
             </div>
           </form>
         </div>
@@ -504,7 +536,12 @@ Generated on: ${new Date().toLocaleDateString()}`;
                     <button onClick={() => startDeleteInvestment(selectedInvestment.id)} className="text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 p-2 rounded-full transition-colors"><Trash2 size={16} /></button>
                   </div>
                 </div>
-                <p className="text-slate-500 font-medium mt-1">{customer?.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-slate-500 font-medium">{customer?.name}</p>
+                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded uppercase font-bold text-slate-400">
+                    {selectedInvestment.type || 'investment'}
+                  </span>
+                </div>
               </div>
               <span className={`px-4 py-1.5 text-xs font-bold rounded-full z-10 uppercase tracking-wide ${selectedInvestment.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                 {selectedInvestment.status}
@@ -647,6 +684,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
                      <div>
                          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Statement</h1>
                          <p className="text-slate-500 mt-2 font-medium">Date: {new Date().toLocaleDateString()}</p>
+                         <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider mt-1">{selectedInvestment.type || 'Investment'}</p>
                      </div>
                      <div className="text-right">
                          <h2 className="text-xl font-bold text-indigo-600">InvestTrack Pro</h2>
@@ -734,7 +772,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
               <p className="text-slate-500 font-medium text-sm">Manage your portfolio</p>
             </div>
             <button 
-              onClick={() => { setInvForm({}); setViewState('add_inv'); }}
+              onClick={() => { setInvForm({ type: 'investment' }); setViewState('add_inv'); }}
               className="bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-300 hover:bg-indigo-700 transition-transform active:scale-95"
             >
               <Plus size={24} strokeWidth={3} />
@@ -748,7 +786,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
                    <Wallet size={32} className="text-slate-300" />
                  </div>
                  <p className="font-medium">No accounts tracked yet.</p>
-                 <button onClick={() => { setInvForm({}); setViewState('add_inv'); }} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first account</button>
+                 <button onClick={() => { setInvForm({ type: 'investment' }); setViewState('add_inv'); }} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first account</button>
                </div>
             ) : (
               data.investments.map(inv => {
@@ -773,7 +811,14 @@ Generated on: ${new Date().toLocaleDateString()}`;
                     
                     <div className="flex justify-between items-start mb-3 pr-10 relative z-10">
                       <div>
-                        <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{inv.title}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-bold text-slate-800 leading-tight">{inv.title}</h3>
+                          {inv.type === 'loan' ? (
+                             <HandCoins size={14} className="text-orange-400" />
+                          ) : (
+                             <Briefcase size={14} className="text-indigo-400" />
+                          )}
+                        </div>
                         <p className="text-sm font-medium text-slate-500">{customer?.name}</p>
                       </div>
                       <div className="flex flex-col items-end">
@@ -783,12 +828,12 @@ Generated on: ${new Date().toLocaleDateString()}`;
                     </div>
                     
                     <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-4 relative z-10">
-                      <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress.percentage}%` }}></div>
+                      <div className={`h-full rounded-full transition-all duration-1000 ease-out ${inv.type === 'loan' ? 'bg-orange-500' : 'bg-indigo-500'}`} style={{ width: `${progress.percentage}%` }}></div>
                     </div>
                     
                     <div className="flex justify-between text-xs font-semibold text-slate-400 relative z-10">
                       <span className="flex items-center"><Calendar size={12} className="mr-1.5"/> {new Date(inv.endDate).toLocaleDateString()}</span>
-                      <span className="flex items-center text-slate-600"><Coins size={12} className="mr-1.5 text-indigo-500"/> Rs {progress.paid.toLocaleString()} <span className="text-slate-300 mx-1">/</span> Rs {progress.expectedTotal.toLocaleString()}</span>
+                      <span className="flex items-center text-slate-600"><Coins size={12} className={`mr-1.5 ${inv.type === 'loan' ? 'text-orange-500' : 'text-indigo-500'}`}/> Rs {progress.paid.toLocaleString()} <span className="text-slate-300 mx-1">/</span> Rs {progress.expectedTotal.toLocaleString()}</span>
                     </div>
                   </div>
                 );
@@ -814,7 +859,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
                <div className="bg-red-50 p-4 rounded-full mb-4">
                  <AlertTriangle size={32} className="text-red-500" />
                </div>
-               <h3 className="text-xl font-bold text-slate-900">Delete Account?</h3>
+               <h3 className="text-xl font-bold text-slate-900">Delete Record?</h3>
                <p className="text-slate-500 mt-2 text-sm leading-relaxed">
                   You are about to delete <b>{data.investments.find(i => i.id === investmentToDelete)?.title}</b>. This will permanently remove all associated data.
                </p>
@@ -839,7 +884,7 @@ Generated on: ${new Date().toLocaleDateString()}`;
 
       {/* Delete Confirmation Modal for Payments */}
       {paymentToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4">
             <div className="flex flex-col items-center text-center mb-6">
                <div className="bg-red-50 p-4 rounded-full mb-4">
