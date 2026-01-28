@@ -83,11 +83,21 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     return sum + expected;
   }, 0);
 
-  // Requirement: Profit = total Expected Return - total Investment Amount
+  // Requirement: Profit = total Expected Return - total Investment Amount (Investments only)
   const totalProjectedProfit = totalExpectedReturn - totalInvested;
   
-  // Requirement: Total Amounts Need to Collect = Sum of Remaining of all investments (excluding loans as per investment-scope rule)
-  const totalRemainingToCollect = Math.max(0, totalExpectedReturn - totalCollected);
+  // NEW LOGIC: Total Amounts Need to Collect = Sum of Remaining of ALL records (Investments + Loans)
+  const totalRemainingToCollect = data.investments.reduce((sum, inv) => {
+    const expected = inv.manualReturnAmount
+      ? inv.manualReturnAmount
+      : inv.amountInvested * (1 + inv.expectedReturnRate / 100);
+    
+    const received = data.payments
+      .filter(p => p.investmentId === inv.id && p.type !== 'lend')
+      .reduce((s, p) => s + p.amount, 0);
+      
+    return sum + Math.max(0, expected - received);
+  }, 0);
   
   // Mobile-friendly ROI (Return on Investment) calculation
   const roiPercentage = totalInvested > 0 ? (totalProjectedProfit / totalInvested) * 100 : 0;
@@ -178,12 +188,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         </p>
       </div>
 
-      {/* Hero Stat: Total Need to Collect */}
+      {/* Hero Stat: Total Need to Collect (Now includes both Investments and Loans) */}
       <div className="animate-in fade-in slide-in-from-top-4 duration-500">
         <StatCard 
           title="Total Need to Collect" 
           value={`Rs ${totalRemainingToCollect.toLocaleString()}`} 
-          subValue="Outstanding Balance from All Investments"
+          subValue="Outstanding Balance (All Records)"
           icon={Clock}
           theme="amber"
         />
